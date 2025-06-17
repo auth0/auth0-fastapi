@@ -1,4 +1,4 @@
-The Auth0 FastAPI SDK is a library for implementing user authentication in FastAPI web applications using [Auth0](https://auth0.com).
+![Auth0 FastAPI SDK](https://cdn.auth0.com/website/sdks/banners/auth0-fastapi-banner.png)
 
 ![Release](https://img.shields.io/pypi/v/auth0-fastapi) [![Codecov](https://img.shields.io/codecov/c/github/auth0/auth0-fastapi)](https://codecov.io/gh/auth0/auth0-fastapi) ![Downloads](https://img.shields.io/pypi/dw/auth0-fastapi) [![License](https://img.shields.io/:license-MIT-blue.svg?style=flat)](https://opensource.org/licenses/MIT)
 
