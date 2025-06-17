@@ -26,7 +26,7 @@ jobs:
       PRODSEC_TOOLS_TOKEN: ${{ secrets.PRODSEC_TOOLS_TOKEN }}
       PRODSEC_TOOLS_ARN: ${{ secrets.PRODSEC_TOOLS_ARN }}
   publish-pypi:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request'))
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request')
     name: "PyPI"
     runs-on: ubuntu-latest
     # needs: rl-scanner
