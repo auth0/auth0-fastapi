@@ -1,7 +1,7 @@
 annotated-types==0.7.0
 anyio==4.9.0
 auth0-server-python==1.0.0b4
-Authlib==1.5.2
+Authlib==1.6.1
 backports.tarfile==1.2.0
 certifi==2025.1.31
 cffi==1.17.1
