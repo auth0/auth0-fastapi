@@ -1,7 +1,5 @@
-from urllib.parse import urljoin, urlparse
 from typing import Optional
-
-from fastapi.responses import RedirectResponse
+from urllib.parse import urljoin, urlparse
 
 
 def ensure_no_leading_slash(url: str) -> str:

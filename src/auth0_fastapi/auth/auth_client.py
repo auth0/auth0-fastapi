@@ -1,17 +1,12 @@
 
-from fastapi import Request, Response, HTTPException, status
-
-from auth0_fastapi.stores.cookie_transaction_store import CookieTransactionStore
-from auth0_fastapi.stores.stateless_state_store import StatelessStateStore
-
-from auth0_fastapi.config import Auth0Config
-
 # Imported from auth0-server-python
 from auth0_server_python.auth_server.server_client import ServerClient
-from auth0_server_python.auth_types import (
-    StartInteractiveLoginOptions,
-    LogoutOptions
-)
+from auth0_server_python.auth_types import LogoutOptions, StartInteractiveLoginOptions
+from fastapi import HTTPException, Request, Response, status
+
+from auth0_fastapi.config import Auth0Config
+from auth0_fastapi.stores.cookie_transaction_store import CookieTransactionStore
+from auth0_fastapi.stores.stateless_state_store import StatelessStateStore
 
 
 class AuthClient:
@@ -22,7 +17,12 @@ class AuthClient:
     logging out, and handling backchannel logout.
     """
 
-    def __init__(self, config: Auth0Config, state_store=None, transaction_store=None):
+    def __init__(
+        self,
+        config: Auth0Config,
+        state_store=None,
+        transaction_store=None,
+    ):
         self.config = config
         # Build the redirect URI based on the provided app_base_url
         redirect_uri = f"{str(config.app_base_url).rstrip('/')}/auth/callback"
@@ -48,11 +48,16 @@ class AuthClient:
             authorization_params={
                 "audience": config.audience,
                 "redirect_uri": redirect_uri,
-                **(config.authorization_params or {})
+                **(config.authorization_params or {}),
             },
         )
 
-    async def start_login(self, app_state: dict = None, authorization_params: dict = None, store_options: dict = None) -> str:
+    async def start_login(
+        self,
+        app_state: dict = None,
+        authorization_params: dict = None,
+        store_options: dict = None,
+    ) -> str:
         """
         Initiates the interactive login process.
         Optionally, an app_state dictionary can be passed to persist additional state.
@@ -62,18 +67,26 @@ class AuthClient:
         options = StartInteractiveLoginOptions(
             pushed_authorization_requests=pushed_authorization_requests,
             app_state=app_state,
-            authorization_params=authorization_params if not pushed_authorization_requests else None
+            authorization_params=authorization_params if not pushed_authorization_requests else None,
         )
         return await self.client.start_interactive_login(options, store_options=store_options)
 
-    async def complete_login(self, callback_url: str, store_options: dict = None) -> dict:
+    async def complete_login(
+        self,
+        callback_url: str,
+        store_options: dict = None,
+    ) -> dict:
         """
         Completes the interactive login process using the callback URL.
         Returns a dictionary with the session state data.
         """
         return await self.client.complete_interactive_login(callback_url, store_options=store_options)
 
-    async def logout(self, return_to: str = None, store_options: dict = None) -> str:
+    async def logout(
+        self,
+        return_to: str = None,
+        store_options: dict = None,
+    ) -> str:
         """
         Initiates logout by clearing the session and generating a logout URL.
         Optionally accepts a return_to URL for redirection after logout.
@@ -81,13 +94,20 @@ class AuthClient:
         options = LogoutOptions(return_to=return_to)
         return await self.client.logout(options, store_options=store_options)
 
-    async def handle_backchannel_logout(self, logout_token: str) -> None:
+    async def handle_backchannel_logout(
+        self,
+        logout_token: str,
+    ) -> None:
         """
         Processes a backchannel logout using the provided logout token.
         """
         return await self.client.handle_backchannel_logout(logout_token)
 
-    async def start_link_user(self, options: dict, store_options: dict = None) -> str:
+    async def start_link_user(
+        self,
+        options: dict,
+        store_options: dict = None,
+    ) -> str:
         """
         Initiates the user linking process.
         Options should include:
@@ -99,7 +119,11 @@ class AuthClient:
         """
         return await self.client.start_link_user(options, store_options=store_options)
 
-    async def complete_link_user(self, url: str, store_options: dict = None) -> dict:
+    async def complete_link_user(
+        self,
+        url: str,
+        store_options: dict = None,
+    ) -> dict:
         """
         Completes the user linking process.
         The provided URL should be the callback URL from Auth0.
@@ -107,7 +131,11 @@ class AuthClient:
         """
         return await self.client.complete_link_user(url, store_options=store_options)
 
-    async def start_unlink_user(self, options: dict, store_options: dict = None) -> str:
+    async def start_unlink_user(
+        self,
+        options: dict,
+        store_options: dict = None,
+    ) -> str:
         """
         Initiates the user unlinking process.
         Options should include:
@@ -118,7 +146,11 @@ class AuthClient:
         """
         return await self.client.start_unlink_user(options, store_options=store_options)
 
-    async def complete_unlink_user(self, url: str, store_options: dict = None) -> dict:
+    async def complete_unlink_user(
+        self,
+        url: str,
+        store_options: dict = None,
+    ) -> dict:
         """
         Completes the user unlinking process.
         The provided URL should be the callback URL from Auth0.
@@ -126,7 +158,11 @@ class AuthClient:
         """
         return await self.client.complete_unlink_user(url, store_options=store_options)
 
-    async def require_session(self, request: Request, response: Response) -> dict:
+    async def require_session(
+        self,
+        request: Request,
+        response: Response,
+    ) -> dict:
         """
         Dependency method to ensure a session exists.
         Retrieves the session from the state store using the underlying client.

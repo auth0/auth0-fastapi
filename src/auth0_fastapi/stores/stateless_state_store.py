@@ -1,9 +1,11 @@
-from typing import Any, Dict, Optional, Union
-from fastapi import Request, Response
+from typing import Any, Optional, Union
+
+from auth0_server_python.auth_types import StateData
 
 #Imported from auth0-server-python
 from auth0_server_python.store.abstract import StateStore
-from auth0_server_python.auth_types import StateData
+from fastapi import Response
+
 
 class StatelessStateStore(StateStore):
     """
@@ -26,10 +28,10 @@ class StatelessStateStore(StateStore):
         }
 
     async def set(
-        self, 
-        identifier: str, 
-        state: Union[StateData, Dict[str, Any]],
-        options: Optional[Dict[str, Any]] = None
+        self,
+        identifier: str,
+        state: Union[StateData, dict[str, Any]],
+        options: Optional[dict[str, Any]] = None,
     ) -> None:
         """
         Stores state data in an encrypted cookie.
@@ -37,12 +39,12 @@ class StatelessStateStore(StateStore):
         """
         if options is None or "response" not in options:
             raise ValueError("Response object is required in store options for stateless storage.")
-        
+
         response: Response = options["response"]
         if hasattr(state, 'dict') and callable(state.dict):
             state_dict = state.dict()
         else:
-            state_dict = state  
+            state_dict = state
         # Encrypt the transaction data using the abstract store method:
         encrypted_data = self.encrypt(identifier, state_dict)
         # Calculate chunk size, ensuring space for the key name and additional characters
@@ -54,27 +56,27 @@ class StatelessStateStore(StateStore):
             chunk_value = encrypted_data[i:i + chunk_size]
             cookies[chunk_name] = chunk_value
             response.set_cookie(
-                key=chunk_name, 
-                value=chunk_value, 
-                path="/", 
+                key=chunk_name,
+                value=chunk_value,
+                path="/",
                 httponly=True,
-                secure=True, 
-                samesite="Lax", 
-                max_age= self.expiration
+                secure=True,
+                samesite="Lax",
+                max_age= self.expiration,
             )
 
     async def get(
-        self, 
-        identifier: str, 
-        options: Optional[Dict[str, Any]] = None
-    ) -> Optional[Union[StateData, Dict[str, Any]]]:
+        self,
+        identifier: str,
+        options: Optional[dict[str, Any]] = None,
+    ) -> Optional[Union[StateData, dict[str, Any]]]:
         """
         Retrieves state data from the encrypted cookie.
         Expects 'request' in options.
         """
         if options is None or "request" not in options:
             raise ValueError("Request object is required in store options for stateless storage.")
-        
+
         request = options["request"]
 
         session_parts = []
@@ -85,7 +87,7 @@ class StatelessStateStore(StateStore):
                 session_parts.append((index, value))
         if not session_parts:
             return ""
- 
+
         session_parts.sort()  # Sort by index
 
         full_encoded_data = "".join(part[1] for part in session_parts)
@@ -97,11 +99,11 @@ class StatelessStateStore(StateStore):
             return decrypted_data
         except Exception:
             return None
-        
+
     async def delete(
-        self, 
-        identifier: str, 
-        options: Optional[Dict[str, Any]] = None
+        self,
+        identifier: str,
+        options: Optional[dict[str, Any]] = None,
     ) -> None:
         """
         Deletes the state cookie and its chunks.
@@ -109,11 +111,11 @@ class StatelessStateStore(StateStore):
         """
         if options is None or "response" not in options:
             raise ValueError("Response object is required in store options for stateless storage.")
-        
+
         response: Response = options["response"]
         # Delete the base cookie if it exists
         response.delete_cookie(key=self.cookie_name)
-        
+
         # Delete potential cookie chunks (assume a max number of chunks, e.g., 20)
         for i in range(20):
             chunk_key = f"{self.cookie_name}_{i}"

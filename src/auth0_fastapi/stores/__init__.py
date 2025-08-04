@@ -10,5 +10,5 @@ from .stateless_state_store import StatelessStateStore
 __all__ = [
     "CookieTransactionStore",
     "StatefulStateStore",
-    "StatelessStateStore"
+    "StatelessStateStore",
 ]

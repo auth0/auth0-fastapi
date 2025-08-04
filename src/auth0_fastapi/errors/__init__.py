@@ -1,16 +1,16 @@
-from fastapi import Request, HTTPException
-from fastapi.responses import JSONResponse
-
 #Imported from auth0-server-python
 from auth0_server_python.error import (
-    Auth0Error,
-    MissingTransactionError,
-    ApiError,
     AccessTokenError,
-    MissingRequiredArgumentError,
+    AccessTokenForConnectionError,
+    ApiError,
+    Auth0Error,
     BackchannelLogoutError,
-    AccessTokenForConnectionError
+    MissingRequiredArgumentError,
+    MissingTransactionError,
 )
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
 
 def auth0_exception_handler(request: Request, exc: Auth0Error):
     """
@@ -37,8 +37,8 @@ def auth0_exception_handler(request: Request, exc: Auth0Error):
         status_code=status_code,
         content={
             "error": getattr(exc, "code", "auth_error"),
-            "message": exc.message or "An authentication error occurred."
-        }
+            "message": exc.message or "An authentication error occurred.",
+        },
     )
 
 def register_exception_handlers(app):

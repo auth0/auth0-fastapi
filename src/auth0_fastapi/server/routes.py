@@ -1,10 +1,11 @@
-from ..util import to_safe_redirect, create_route_url
-from ..util import to_safe_redirect, create_route_url
-from fastapi import APIRouter, Request, Response, HTTPException, Depends, Query
-from fastapi.responses import RedirectResponse
 from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi.responses import RedirectResponse
+
 from ..auth.auth_client import AuthClient
 from ..config import Auth0Config
+from ..util import create_route_url, to_safe_redirect
 
 router = APIRouter()
 
@@ -27,7 +28,11 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
     """
     if config.mount_routes:
         @router.get("/auth/login")
-        async def login(request: Request, response: Response, auth_client: AuthClient = Depends(get_auth_client)):
+        async def login(
+            request: Request,
+            response: Response,
+            auth_client: AuthClient = Depends(get_auth_client),
+        ):
             """
             Endpoint to initiate the login process.
             Optionally accepts a 'return_to' query parameter and passes it as part of the app state.
@@ -40,13 +45,17 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             auth_url = await auth_client.start_login(
                 app_state={"returnTo": return_to} if return_to else None,
                 authorization_params=authorization_params,
-                store_options={"response": response}
+                store_options={"response": response},
             )
 
             return RedirectResponse(url=auth_url, headers=response.headers)
 
         @router.get("/auth/callback")
-        async def callback(request: Request, response: Response, auth_client: AuthClient = Depends(get_auth_client)):
+        async def callback(
+            request: Request,
+            response: Response,
+            auth_client: AuthClient = Depends(get_auth_client),
+        ):
             """
             Endpoint to handle the callback after Auth0 authentication.
             Processes the callback URL and completes the login flow.
@@ -54,7 +63,10 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             """
             full_callback_url = str(request.url)
             try:
-                session_data = await auth_client.complete_login(full_callback_url, store_options={"request": request, "response": response})
+                session_data = await auth_client.complete_login(
+                    full_callback_url,
+                    store_options={"request": request, "response": response},
+                )
             except Exception as e:
                 raise HTTPException(status_code=400, detail=str(e))
 
@@ -67,7 +79,11 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             return RedirectResponse(url=return_to or default_redirect, headers=response.headers)
 
         @router.get("/auth/logout")
-        async def logout(request: Request, response: Response, auth_client: AuthClient = Depends(get_auth_client)):
+        async def logout(
+            request: Request,
+            response: Response,
+            auth_client: AuthClient = Depends(get_auth_client),
+        ):
             """
             Endpoint to handle logout.
             Clears the session cookie (if applicable) and generates a logout URL,
@@ -76,14 +92,20 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             return_to: Optional[str] = request.query_params.get("returnTo")
             try:
                 default_redirect = str(auth_client.config.app_base_url)
-                logout_url = await auth_client.logout(return_to=return_to or default_redirect, store_options={"response": response})
+                logout_url = await auth_client.logout(
+                    return_to=return_to or default_redirect,
+                    store_options={"response": response},
+                )
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
 
             return RedirectResponse(url=logout_url, headers=response.headers)
 
         @router.post("/auth/backchannel-logout")
-        async def backchannel_logout(request: Request, auth_client: AuthClient = Depends(get_auth_client)):
+        async def backchannel_logout(
+            request: Request,
+            auth_client: AuthClient = Depends(get_auth_client),
+        ):
             """
             Endpoint to process backchannel logout notifications.
             Expects a JSON body with a 'logout_token'.
@@ -101,85 +123,18 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
                 raise HTTPException(status_code=400, detail=str(e))
             return Response(status_code=204)
 
-        #################### Testing Route (Won't be there in the Fastify SDKs) ###################################
-        @router.get("/auth/profile")
-        async def profile(request: Request, response: Response, auth_client: AuthClient = Depends(get_auth_client)):
-            # Prepare store_options with the Request object (used by the state store to read cookies)
-            store_options = {"request": request, "response": response}
-            try:
-                # Retrieve user information and session data from the state store
-                user = await auth_client.client.get_user(store_options=store_options)
-                session = await auth_client.client.get_session(store_options=store_options)
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=str(e))
 
-            return {
-                "user": user,
-                "session": session
-            }
-
-        @router.get("/auth/token")
-        async def get_token(request: Request, response: Response, auth_client: AuthClient = Depends(get_auth_client)):
-            # Prepare store_options with the Request object (used by the state store to read cookies)
-            store_options = {"request": request, "response": response}
-            try:
-                # Retrieve access token from the client
-                access_token = await auth_client.client.get_access_token(store_options=store_options)
-
-                return {
-                    "access_token_available": bool(access_token),
-                    "access_token_preview": access_token[:10] + "..." if access_token else None,
-                    "status": "success"
-                }
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=str(e))
-
-        @router.get("/auth/connection/{connection_name}")
-        async def get_connection_token(
-            connection_name: str,
-            request: Request,
-            response: Response,
-            auth_client: AuthClient = Depends(get_auth_client),
-            login_hint: Optional[str] = None
-        ):
-            store_options = {"request": request, "response": response}
-
-            try:
-                # Create connection options as a dictionary
-                connection_options = {
-                    "connection": connection_name
-                }
-
-                # Add login_hint if provided
-                if login_hint:
-                    connection_options["login_hint"] = login_hint
-
-                # Retrieve connection-specific access token
-                access_token = await auth_client.client.get_access_token_for_connection(
-                    connection_options,
-                    store_options=store_options
-                )
-
-                # Return a response with token information
-                return {
-                    "connection": connection_name,
-                    "access_token_available": bool(access_token),
-                    "access_token_preview": access_token[:10] + "..." if access_token else None,
-                    "status": "success"
-                }
-            except Exception as e:
-                # Handle all errors with a single exception handler
-                raise HTTPException(status_code=400, detail=str(e))
-        #################### ********Testing Routes End ****** ###################################
 
     if config.mount_connect_routes:
 
         @router.get("/auth/connect")
-        async def connect(request: Request, response: Response,
-                          connection: Optional[str] = Query(None),
-                          connectionScope: Optional[str] = Query(None),
-                          returnTo: Optional[str] = Query(None),
-                          auth_client: AuthClient = Depends(get_auth_client)):
+        async def connect(
+            request: Request, response: Response,
+            connection: Optional[str] = Query(None),
+            connectionScope: Optional[str] = Query(None),
+            returnTo: Optional[str] = Query(None),
+            auth_client: AuthClient = Depends(get_auth_client),
+        ):
 
             # Extract query parameters (connection, connectionScope, returnTo)
             connection = connection or request.query_params.get("connection")
@@ -191,7 +146,7 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             if not connection:
                 raise HTTPException(
                     status_code=400,
-                    detail="connection is not set"
+                    detail="connection is not set",
                 )
 
             sanitized_return_to = to_safe_redirect(
@@ -208,21 +163,28 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
                 "connection": connection,
                 "connectionScope": connection_scope,
                 "authorization_params": {
-                    "redirect_uri": str(redirect_uri)
+                    "redirect_uri": str(redirect_uri),
                 },
                 "app_state": {
-                    "returnTo": sanitized_return_to
-                }
+                    "returnTo": sanitized_return_to,
+                },
             }, store_options={"request": request, "response": response})
 
             return RedirectResponse(url=link_user_url, headers=response.headers)
 
         @router.get("/auth/connect/callback")
-        async def connect_callback(request: Request, response: Response, auth_client: AuthClient = Depends(get_auth_client)):
+        async def connect_callback(
+            request: Request,
+            response: Response,
+            auth_client: AuthClient = Depends(get_auth_client),
+        ):
             # Use the full URL from the callback
             callback_url = str(request.url)
             try:
-                result = await auth_client.complete_link_user(callback_url, store_options={"request": request, "response": response})
+                result = await auth_client.complete_link_user(
+                    callback_url,
+                    store_options={"request": request, "response": response},
+                )
             except Exception as e:
                 raise HTTPException(status_code=400, detail=str(e))
 
@@ -234,11 +196,14 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             return RedirectResponse(url=return_to or app_base_url, headers=response.headers)
 
         @router.get("/auth/unconnect")
-        async def connect(request: Request, response: Response,
-                          connection: Optional[str] = Query(None),
-                          connectionScope: Optional[str] = Query(None),
-                          returnTo: Optional[str] = Query(None),
-                          auth_client: AuthClient = Depends(get_auth_client)):
+        async def unconnect(
+            request: Request,
+            response: Response,
+            connection: Optional[str] = Query(None),
+            connectionScope: Optional[str] = Query(None),
+            returnTo: Optional[str] = Query(None),
+            auth_client: AuthClient = Depends(get_auth_client),
+        ):
 
             # Extract query parameters (connection, connectionScope, returnTo)
             connection = connection or request.query_params.get("connection")
@@ -248,7 +213,7 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             if not connection:
                 raise HTTPException(
                     status_code=400,
-                    detail="connection is not set"
+                    detail="connection is not set",
                 )
 
             sanitized_return_to = to_safe_redirect(
@@ -264,21 +229,28 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             link_user_url = await auth_client.start_unlink_user({
                 "connection": connection,
                 "authorization_params": {
-                    "redirect_uri": str(redirect_uri)
+                    "redirect_uri": str(redirect_uri),
                 },
                 "app_state": {
-                    "returnTo": sanitized_return_to
-                }
+                    "returnTo": sanitized_return_to,
+                },
             }, store_options={"request": request, "response": response})
 
             return RedirectResponse(url=link_user_url, headers=response.headers)
 
         @router.get("/auth/unconnect/callback")
-        async def unconnect_callback(request: Request, response: Response, auth_client: AuthClient = Depends(get_auth_client)):
+        async def unconnect_callback(
+            request: Request,
+            response: Response,
+            auth_client: AuthClient = Depends(get_auth_client),
+        ):
             # Use the full URL from the callback
             callback_url = str(request.url)
             try:
-                result = await auth_client.complete_unlink_user(callback_url, store_options={"request": request, "response": response})
+                result = await auth_client.complete_unlink_user(
+                    callback_url,
+                    store_options={"request": request, "response": response},
+                )
             except Exception as e:
                 raise HTTPException(status_code=400, detail=str(e))
 
