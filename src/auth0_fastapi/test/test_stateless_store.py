@@ -374,7 +374,7 @@ class TestStatelessStateStore:
         with patch.object(store, 'decrypt') as mock_decrypt:
             mock_decrypt.return_value = {"partial": "data"}
 
-            result = await store.get("test_id", options)
+            await store.get("test_id", options)
 
             # This demonstrates the security issue: missing chunks are silently handled
             # The reassembled data will be "chunk1chunk3" (missing middle chunk)
