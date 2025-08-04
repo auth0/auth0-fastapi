@@ -256,7 +256,7 @@ class TestLogoutEndpoint:
         return_to = mock_request.query_params.get("returnTo")
         default_redirect = str(mock_auth_client.config.app_base_url)
 
-        await mock_auth_client.logout(
+        logout_url = await mock_auth_client.logout(
             return_to=return_to or default_redirect,
             store_options={"response": mock_response}
         )
@@ -277,7 +277,7 @@ class TestLogoutEndpoint:
         # Simulate logout endpoint logic
         return_to = mock_request.query_params.get("returnTo")
 
-        logout_url = await mock_auth_client.logout(
+        await mock_auth_client.logout(
             return_to=return_to,
             store_options={"response": mock_response}
         )
