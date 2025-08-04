@@ -8,7 +8,6 @@ select = [
     "C4",  # flake8-comprehensions
     "UP",  # pyupgrade
     "S",   # bandit (security)
-    "COM", # flake8-complexity
     "DTZ", # flake8-datetimez
     "G",   # flake8-logging-format
     "A",   # flake8-annotations
