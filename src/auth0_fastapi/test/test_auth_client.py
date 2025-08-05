@@ -56,7 +56,7 @@ class TestAuthClientInitialization:
         """Test that redirect URI is constructed securely."""
         # The redirect URI should be properly constructed from app_base_url
         expected_redirect = f"{str(auth_config.app_base_url).rstrip('/')}/auth/callback"
-        
+
         # Use patch to intercept the ServerClient initialization
         with patch('auth0_fastapi.auth.auth_client.ServerClient') as mock_server_client:
             AuthClient(auth_config)
