@@ -54,11 +54,16 @@ class TestAuthClientInitialization:
 
     def test_redirect_uri_construction(self, auth_config):
         """Test that redirect URI is constructed securely."""
-        client = AuthClient(auth_config)
         # The redirect URI should be properly constructed from app_base_url
-        expected_redirect = "https://example.com/auth/callback"
-        # We can't directly access the redirect_uri, but we can verify it's used correctly
-        assert client.config.app_base_url == auth_config.app_base_url
+        expected_redirect = f"{str(auth_config.app_base_url).rstrip('/')}/auth/callback"
+        
+        # Use patch to intercept the ServerClient initialization
+        with patch('auth0_fastapi.auth.auth_client.ServerClient') as mock_server_client:
+            AuthClient(auth_config)
+            mock_server_client.assert_called_once()
+            _, kwargs = mock_server_client.call_args
+            assert kwargs['redirect_uri'] == expected_redirect
+            assert kwargs['authorization_params']['redirect_uri'] == expected_redirect
 
     def test_custom_stores_initialization(self, auth_config):
         """Test initialization with custom state and transaction stores."""
