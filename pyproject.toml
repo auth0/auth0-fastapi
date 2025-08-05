@@ -13,7 +13,7 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.9"
 auth0-server-python = ">=1.0.0b3"  
-fastapi = "^0.115.11"
+fastapi = ">=0.115.11,<0.117.0"
 itsdangerous = "^2.2.0"
 
 
@@ -24,9 +24,10 @@ pytest-asyncio = "^0.20.3"
 pytest-mock = "^3.14.0"
 uvicorn = "^0.34.0"
 twine = "^6.1.0"
+ruff = "^0.12.7"
 
 [tool.pytest.ini_options]
-addopts = "--cov=auth_server --cov-report=term-missing:skip-covered --cov-report=xml"
+addopts = "--cov=auth0_fastapi --cov-report=term-missing --cov-report=html"
 
 [build-system]
 requires = ["poetry-core>=1.4.0"]

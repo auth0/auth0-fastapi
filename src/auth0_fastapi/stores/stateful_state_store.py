@@ -1,15 +1,16 @@
-from typing import Any, Dict, Optional
-from fastapi import Request, Response
+from typing import Any, Optional
+
+from auth0_server_python.auth_types import StateData
 
 #Imported from auth0-server-python
 from auth0_server_python.store.abstract import StateStore
-from auth0_server_python.auth_types import StateData
+from fastapi import Response
+
 
 class StatefulStateStore(StateStore):
     """
     A state store implementation that persists session data in a backend store
     (for example, Redis or a database). It uses a cookie to keep track of the session ID.
-    
     The underlying session store must implement asynchronous get, set, delete, and keys methods.
     """
     def __init__(self, secret: str, store: Any, cookie_name: str = "_a0_session", expiration: int = 259200):
@@ -25,11 +26,11 @@ class StatefulStateStore(StateStore):
         self.expiration = expiration
 
     async def set(
-        self, 
-        identifier: str, 
-        state: StateData, 
-        remove_if_exists: bool = False, 
-        options: Optional[Dict[str, Any]] = None
+        self,
+        identifier: str,
+        state: StateData,
+        remove_if_exists: bool = False,
+        options: Optional[dict[str, Any]] = None,
     ) -> None:
         """
         Stores state data in the underlying session store and sets a cookie with the session ID.
@@ -37,17 +38,22 @@ class StatefulStateStore(StateStore):
         """
         if options is None or "response" not in options:
             raise ValueError("Response object is required in store options for stateful storage.")
-        
+
         response: Response = options["response"]
         # Store the JSON representation. In a real implementation, encrypt if needed.
-        data = state.json()
+        data = state.model_dump_json()
         await self.store.set(identifier, data, expire=self.expiration)
-        response.set_cookie(key=self.cookie_name, value=identifier, httponly=True, max_age=self.expiration)
+        response.set_cookie(
+            key=self.cookie_name,
+            value=identifier,
+            httponly=True,
+            max_age=self.expiration,
+        )
 
     async def get(
-        self, 
-        identifier: str, 
-        options: Optional[Dict[str, Any]] = None
+        self,
+        identifier: str,
+        options: Optional[dict[str, Any]] = None,
     ) -> Optional[StateData]:
         """
         Retrieves state data from the underlying session store using the session cookie.
@@ -55,25 +61,25 @@ class StatefulStateStore(StateStore):
         """
         if options is None or "request" not in options:
             raise ValueError("Request object is required in store options for stateful storage.")
-        
+
         request = options["request"]
         session_id = request.cookies.get(self.cookie_name)
         if not session_id:
             return None
-        
+
         data = await self.store.get(session_id)
         if not data:
             return None
-        
+
         try:
-            return StateData.parse_obj(data)
+            return StateData.model_validate(data)
         except Exception:
             return None
 
     async def delete(
-        self, 
-        identifier: str, 
-        options: Optional[Dict[str, Any]] = None
+        self,
+        identifier: str,
+        options: Optional[dict[str, Any]] = None,
     ) -> None:
         """
         Deletes state data from the session store and clears the session cookie.
@@ -81,15 +87,15 @@ class StatefulStateStore(StateStore):
         """
         if options is None or "response" not in options:
             raise ValueError("Response object is required in store options for stateful storage.")
-        
+
         response: Response = options["response"]
         await self.store.delete(identifier)
         response.delete_cookie(key=self.cookie_name)
-    
+
     async def delete_by_logout_token(
-        self, 
-        claims: Dict[str, Any], 
-        options: Optional[Dict[str, Any]] = None
+        self,
+        claims: dict[str, Any],
+        options: Optional[dict[str, Any]] = None,
     ) -> None:
         """
         Iterates over the session store keys and deletes sessions matching the logout token claims.

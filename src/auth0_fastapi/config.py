@@ -1,5 +1,7 @@
-from pydantic import BaseModel, AnyUrl, Field
-from typing import Optional, Dict, Any
+from typing import Any, Optional
+
+from pydantic import AnyUrl, BaseModel, Field
+
 
 class Auth0Config(BaseModel):
     """
@@ -11,7 +13,7 @@ class Auth0Config(BaseModel):
     app_base_url: AnyUrl = Field(..., alias="appBaseUrl", description="Base URL of your application (e.g., https://example.com)")
     secret: str = Field(..., description="Secret used for encryption and signing cookies")
     audience: Optional[str] = Field(None, description="Target audience for tokens (if applicable)")
-    authorization_params: Optional[Dict[str, Any]] = Field(None, description="Additional parameters to include in the authorization request")
+    authorization_params: Optional[dict[str, Any]] = Field(None, description="Additional parameters to include in the authorization request")
     pushed_authorization_requests: bool = Field(False, description="Whether to use pushed authorization requests")
     # Route-mounting flags with desired defaults
     mount_routes: bool = Field(True, description="Controls /auth/* routes: login, logout, callback, backchannel-logout")
