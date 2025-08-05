@@ -22,7 +22,7 @@ pytest = "^7.2"
 pytest-cov = "^4.0"
 pytest-asyncio = "^0.20.3"
 pytest-mock = "^3.14.0"
-uvicorn = "^0.34.0"
+uvicorn = ">=0.34,<0.36"
 twine = "^6.1.0"
 ruff = "^0.12.7"
 
