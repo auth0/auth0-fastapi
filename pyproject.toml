@@ -24,7 +24,7 @@ pytest-asyncio = "^0.20.3"
 pytest-mock = "^3.14.0"
 uvicorn = "^0.34.0"
 twine = "^6.1.0"
-ruff = "^0.12.7"
+ruff = ">=0.12.7,<0.14.0"
 
 [tool.pytest.ini_options]
 addopts = "--cov=auth0_fastapi --cov-report=term-missing --cov-report=html"
