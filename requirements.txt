@@ -1,6 +1,6 @@
 # Direct dependencies
 auth0-server-python==1.0.0b4
-Authlib==1.6.1
+Authlib==1.6.5
 fastapi==0.116.1
 itsdangerous==2.2.0
 pydantic==2.11.7
@@ -13,5 +13,4 @@ pytest-asyncio==0.20.3
 pytest-cov==4.1.0
 pytest-mock==3.14.1
 ruff==0.12.7
-twine==6.1.0
 coverage==7.10.2
