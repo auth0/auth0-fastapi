@@ -3,7 +3,7 @@ auth0-server-python==1.0.0b4
 Authlib==1.6.5
 fastapi==0.116.1
 itsdangerous==2.2.0
-pydantic==2.11.7
+pydantic==2.12.3
 pydantic_core==2.33.2
 starlette==0.47.2
 typing_extensions==4.14.1
