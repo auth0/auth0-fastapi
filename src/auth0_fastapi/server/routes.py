@@ -61,27 +61,26 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             Processes the callback URL and completes the login or connected account flow.
             Redirects the user to a post-login URL based on appState or a default.
             """
-            connect_code = request.query_params.get("connect_code")
-            if connect_code and config.mount_connected_account_routes:
-                state = request.query_params.get("state")
-                return await auth_client.complete_connect_account(
-                    connect_code=connect_code,
-                    state=state,
-                    store_options={"request": request, "response": response},
-                )
-
             full_callback_url = str(request.url)
 
             try:
-                session_data = await auth_client.complete_login(
-                    full_callback_url,
-                    store_options={"request": request, "response": response},
-                )
+                if "connect_code" in request.query_params.keys() and config.mount_connected_account_routes:
+                    connect_complete_response = await auth_client.complete_connect_account(
+                        full_callback_url, store_options={"request": request, "response": response})
+                    
+                    app_state = connect_complete_response.app_state or {}
+                else:
+                    session_data = await auth_client.complete_login(
+                        full_callback_url,store_options={"request": request, "response": response})
+                    
+                    # Extract the returnTo URL from the appState if available.
+                    app_state = session_data.get("app_state", {})
             except Exception as e:
                 raise HTTPException(status_code=400, detail=str(e))
 
+
             # Extract the returnTo URL from the appState if available.
-            return_to = session_data.get("app_state", {}).get("returnTo")
+            return_to = app_state.get("returnTo")
 
             # Assuming config is stored on app.state
             default_redirect = auth_client.config.app_base_url
@@ -146,9 +145,12 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             Redirects the user to the Auth0 connect account URL.
             """
             authorization_params = {k: v for k, v in request.query_params.items() if k not in [
-                "connection"]}
+                "connection", "returnTo"]}
+            
+            return_to = request.query_params.get("returnTo")
             connect_account_url = await auth_client.start_connect_account(
                 connection=connection,
+                app_state={"returnTo": return_to} if return_to else None,
                 authorization_params=authorization_params,
                 store_options={"request": request, "response": response},
             )
