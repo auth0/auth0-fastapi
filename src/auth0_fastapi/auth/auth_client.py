@@ -1,7 +1,7 @@
 
 # Imported from auth0-server-python
 from auth0_server_python.auth_server.server_client import ServerClient
-from auth0_server_python.auth_types import LogoutOptions, StartInteractiveLoginOptions, ConnectAccountOptions
+from auth0_server_python.auth_types import ConnectAccountOptions, LogoutOptions, StartInteractiveLoginOptions
 from fastapi import HTTPException, Request, Response, status
 
 from auth0_fastapi.config import Auth0Config
@@ -111,7 +111,8 @@ class AuthClient:
         Optionally, an app_state dictionary can be passed to persist additional state.
         Returns the authorization URL to redirect the user.
         """
-        return await self.client.complete_connect_account(connect_code=connect_code, state=state, store_options=store_options)
+        return await self.client.complete_connect_account(
+            connect_code=connect_code, state=state, store_options=store_options)
 
     async def logout(
         self,
