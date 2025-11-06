@@ -58,10 +58,20 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
         ):
             """
             Endpoint to handle the callback after Auth0 authentication.
-            Processes the callback URL and completes the login flow.
+            Processes the callback URL and completes the login or connected account flow.
             Redirects the user to a post-login URL based on appState or a default.
             """
+            connect_code = request.query_params.get("connect_code")
+            if connect_code and config.mount_connected_account_routes:
+                state = request.query_params.get("state")
+                return await auth_client.complete_connect_account(
+                    connect_code=connect_code,
+                    state=state,
+                    store_options={"request": request, "response": response},
+                )
+
             full_callback_url = str(request.url)
+
             try:
                 session_data = await auth_client.complete_login(
                     full_callback_url,
@@ -123,7 +133,27 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
                 raise HTTPException(status_code=400, detail=str(e))
             return Response(status_code=204)
 
+    if config.mount_connected_account_routes:
+        @router.get("/auth/connect-account")
+        async def connect_account(
+            request: Request,
+            response: Response,
+            connection: str = Query(),
+            auth_client: AuthClient = Depends(get_auth_client),
+        ):
+            """
+            Endpoint to initiate the connect account flow for linking a third-party account to the user's profile.
+            Redirects the user to the Auth0 connect account URL.
+            """
+            authorization_params = {k: v for k, v in request.query_params.items() if k not in [
+                "connection"]}
+            connect_account_url = await auth_client.start_connect_account(
+                connection=connection,
+                authorization_params=authorization_params,
+                store_options={"request": request, "response": response},
+            )
 
+            return RedirectResponse(url=connect_account_url, headers=response.headers)
 
     if config.mount_connect_routes:
 

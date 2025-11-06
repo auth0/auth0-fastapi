@@ -1,7 +1,7 @@
 
 # Imported from auth0-server-python
 from auth0_server_python.auth_server.server_client import ServerClient
-from auth0_server_python.auth_types import LogoutOptions, StartInteractiveLoginOptions
+from auth0_server_python.auth_types import LogoutOptions, StartInteractiveLoginOptions, ConnectAccountOptions
 from fastapi import HTTPException, Request, Response, status
 
 from auth0_fastapi.config import Auth0Config
@@ -45,6 +45,7 @@ class AuthClient:
             transaction_store=transaction_store,
             state_store=state_store,
             pushed_authorization_requests=config.pushed_authorization_requests,
+            use_mrrt=config.use_mrrt,
             authorization_params={
                 "audience": config.audience,
                 "redirect_uri": redirect_uri,
@@ -81,6 +82,36 @@ class AuthClient:
         Returns a dictionary with the session state data.
         """
         return await self.client.complete_interactive_login(callback_url, store_options=store_options)
+
+    async def start_connect_account(
+        self,
+        connection: str,
+        authorization_params: dict = None,
+        store_options: dict = None,
+    ) -> str:
+        """
+        Initiates the connected account process.
+        Optionally, an app_state dictionary can be passed to persist additional state.
+        Returns the authorization URL to redirect the user.
+        """
+        options = ConnectAccountOptions(
+            connection=connection,
+            authorization_params= authorization_params
+        )
+        return await self.client.start_connect_account(options=options, store_options=store_options)
+
+    async def complete_connect_account(
+        self,
+        connect_code: str,
+        state: str,
+        store_options: dict = None,
+    ) -> str:
+        """
+        Initiates the interactive login process.
+        Optionally, an app_state dictionary can be passed to persist additional state.
+        Returns the authorization URL to redirect the user.
+        """
+        return await self.client.complete_connect_account(connect_code=connect_code, state=state, store_options=store_options)
 
     async def logout(
         self,
