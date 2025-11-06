@@ -67,12 +67,12 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
                 if "connect_code" in request.query_params.keys() and config.mount_connected_account_routes:
                     connect_complete_response = await auth_client.complete_connect_account(
                         full_callback_url, store_options={"request": request, "response": response})
-                    
+
                     app_state = connect_complete_response.app_state or {}
                 else:
                     session_data = await auth_client.complete_login(
                         full_callback_url,store_options={"request": request, "response": response})
-                    
+
                     # Extract the returnTo URL from the appState if available.
                     app_state = session_data.get("app_state", {})
             except Exception as e:
@@ -146,7 +146,7 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             """
             authorization_params = {k: v for k, v in request.query_params.items() if k not in [
                 "connection", "returnTo"]}
-            
+
             return_to = request.query_params.get("returnTo")
             connect_account_url = await auth_client.start_connect_account(
                 connection=connection,
