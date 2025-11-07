@@ -1,7 +1,12 @@
 
 # Imported from auth0-server-python
 from auth0_server_python.auth_server.server_client import ServerClient
-from auth0_server_python.auth_types import ConnectAccountOptions, LogoutOptions, StartInteractiveLoginOptions
+from auth0_server_python.auth_types import (
+    CompleteConnectAccountResponse,
+    ConnectAccountOptions,
+    LogoutOptions,
+    StartInteractiveLoginOptions,
+)
 from fastapi import HTTPException, Request, Response, status
 
 from auth0_fastapi.config import Auth0Config
@@ -93,12 +98,12 @@ class AuthClient:
         """
         Initiates the connected account process.
         Optionally, an app_state dictionary can be passed to persist additional state.
-        Returns the authorization URL to redirect the user.
+        Returns the connect URL to redirect the user.
         """
         options = ConnectAccountOptions(
             connection=connection,
             app_state=app_state,
-            authorization_params= authorization_params
+            authorization_params=authorization_params
         )
         return await self.client.start_connect_account(options=options, store_options=store_options)
 
@@ -106,11 +111,10 @@ class AuthClient:
         self,
         url: str,
         store_options: dict = None,
-    ) -> str:
+    ) -> CompleteConnectAccountResponse:
         """
-        Initiates the interactive login process.
-        Optionally, an app_state dictionary can be passed to persist additional state.
-        Returns the authorization URL to redirect the user.
+        Completes the connect account process using the callback URL.
+        Returns the completed connect account response.
         """
         return await self.client.complete_connect_account(url, store_options=store_options)
 

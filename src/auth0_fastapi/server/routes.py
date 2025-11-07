@@ -64,14 +64,14 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             full_callback_url = str(request.url)
 
             try:
-                if "connect_code" in request.query_params.keys() and config.mount_connected_account_routes:
+                if "connect_code" in request.query_params and config.mount_connected_account_routes:
                     connect_complete_response = await auth_client.complete_connect_account(
                         full_callback_url, store_options={"request": request, "response": response})
 
                     app_state = connect_complete_response.app_state or {}
                 else:
                     session_data = await auth_client.complete_login(
-                        full_callback_url,store_options={"request": request, "response": response})
+                        full_callback_url, store_options={"request": request, "response": response})
 
                     # Extract the returnTo URL from the appState if available.
                     app_state = session_data.get("app_state", {})
@@ -85,7 +85,8 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             # Assuming config is stored on app.state
             default_redirect = auth_client.config.app_base_url
 
-            return RedirectResponse(url=return_to or default_redirect, headers=response.headers)
+            safe_redirect = to_safe_redirect(return_to or default_redirect, auth_client.config.app_base_url)
+            return RedirectResponse(url=safe_redirect, headers=response.headers)
 
         @router.get("/auth/logout")
         async def logout(
