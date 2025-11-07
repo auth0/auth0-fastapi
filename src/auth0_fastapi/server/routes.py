@@ -144,8 +144,8 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             Endpoint to initiate the connect account flow for linking a third-party account to the user's profile.
             Redirects the user to the Auth0 connect account URL.
             """
-            authorization_params = {k: v for k, v in request.query_params.items() if k not in [
-                "connection", "returnTo"]}
+            authorization_params = {
+                k: v for k, v in request.query_params.items() if k not in ["connection", "returnTo"]}
 
             return_to = request.query_params.get("returnTo")
             connect_account_url = await auth_client.start_connect_account(

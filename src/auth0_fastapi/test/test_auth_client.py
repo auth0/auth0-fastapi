@@ -2,6 +2,7 @@ import asyncio
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from auth0_server_python.auth_types import CompleteConnectAccountResponse, ConnectAccountOptions
 from fastapi import HTTPException, Request, Response
 
 from auth0_fastapi.auth.auth_client import AuthClient
@@ -392,3 +393,48 @@ class TestSecurityVulnerabilities:
             await auth_client.start_login(store_options=valid_options)
 
             mock_start.assert_called()
+
+
+class TestConnectedAccountFlow:
+    """Test connected account functionality."""
+
+    @pytest.mark.asyncio
+    async def test_start_connect_account(self, auth_client):
+        """Test initiating user account linking."""
+        mock_connect_url = "https://test.auth0.com/connected-accounts/connect?ticket"
+
+        with patch.object(auth_client.client, 'start_connect_account', new_callable=AsyncMock) as mock_start_connect:
+            mock_start_connect.return_value = mock_connect_url
+
+            result = await auth_client.start_connect_account(
+                connection="google-oauth2",
+                app_state={"returnTo": "/profile"},
+                authorization_params={"prompt": "consent"},
+            )
+
+            assert result == mock_connect_url
+            mock_start_connect.assert_called_once_with(
+                options=ConnectAccountOptions(
+                    connection="google-oauth2",
+                    app_state={"returnTo": "/profile"},
+                    authorization_params={"prompt": "consent"},
+                ), store_options=None)
+
+    @pytest.mark.asyncio
+    async def test_complete_connect_account(self, auth_client):
+        """Test initiating user account linking."""
+        mock_callback_url = "https://test.auth0.com/connected-accounts/connect?ticket"
+        mock_result = CompleteConnectAccountResponse(
+                id="id_12345",
+                connection="google-oauth2",
+                access_type="offline",
+                scopes=["read:foo"],
+                created_at="1970-01-01T00:00:00Z"
+            )
+        with patch.object(auth_client.client, 'complete_connect_account', new_callable=AsyncMock) as mock_complete:
+            mock_complete.return_value = mock_result
+
+            result = await auth_client.complete_connect_account(mock_callback_url)
+
+            assert result == mock_result
+            mock_complete.assert_called_once_with(mock_callback_url, store_options=None)
