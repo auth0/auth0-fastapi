@@ -12,7 +12,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.9"
-auth0-server-python = ">=1.0.0b5"  
+auth0-server-python = { git = "https://github.com/auth0/auth0-server-python.git", branch = "FGI-1573_connected-account-support" }
 fastapi = ">=0.115.11,<0.117.0"
 pydantic = "^2.12.3"
 
