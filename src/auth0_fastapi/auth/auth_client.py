@@ -50,7 +50,6 @@ class AuthClient:
             transaction_store=transaction_store,
             state_store=state_store,
             pushed_authorization_requests=config.pushed_authorization_requests,
-            use_mrrt=config.use_mrrt,
             authorization_params={
                 "audience": config.audience,
                 "redirect_uri": redirect_uri,

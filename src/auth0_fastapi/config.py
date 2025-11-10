@@ -15,7 +15,6 @@ class Auth0Config(BaseModel):
     audience: Optional[str] = Field(None, description="Target audience for tokens (if applicable)")
     authorization_params: Optional[dict[str, Any]] = Field(None, description="Additional parameters to include in the authorization request")
     pushed_authorization_requests: bool = Field(False, description="Whether to use pushed authorization requests")
-    use_mrrt: bool = Field(False, description="Whether to use Multi-Resource Refresh Tokens (MRRT)")
     # Route-mounting flags with desired defaults
     mount_routes: bool = Field(True, description="Controls /auth/* routes: login, logout, callback, backchannel-logout")
     mount_connect_routes: bool = Field(False, description="Controls /auth/connect routes (account-linking)")
