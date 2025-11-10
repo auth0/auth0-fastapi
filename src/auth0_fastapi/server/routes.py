@@ -6,6 +6,7 @@ from fastapi.responses import RedirectResponse
 from ..auth.auth_client import AuthClient
 from ..config import Auth0Config
 from ..util import create_route_url, to_safe_redirect
+from ..errors import ConfigurationError
 
 router = APIRouter()
 
@@ -26,6 +27,13 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
     """
     Conditionally register auth routes based on config.mount_routes and config.mount_connect_routes.
     """
+    if config.mount_connect_routes and config.mount_connected_account_routes:
+        # Connect routes uses the legacy account linking flow for token vault
+        # Connects Accounts is the preferred mechanism
+        # Both mount the `/auth/connect` route to initiate the flow
+        raise ConfigurationError(
+            "'mount_connect_routes' and 'mount_connected_account_routes' cannot be used together.")
+    
     if config.mount_routes:
         @router.get("/auth/login")
         async def login(
@@ -134,7 +142,7 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             return Response(status_code=204)
 
     if config.mount_connected_account_routes:
-        @router.get("/auth/connect-account")
+        @router.get("/auth/connect")
         async def connect_account(
             request: Request,
             response: Response,
