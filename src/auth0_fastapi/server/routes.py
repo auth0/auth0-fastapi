@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
@@ -93,7 +93,7 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             # Assuming config is stored on app.state
             default_redirect = auth_client.config.app_base_url
 
-            safe_redirect = to_safe_redirect(return_to or default_redirect, auth_client.config.app_base_url)
+            safe_redirect = to_safe_redirect(return_to, default_redirect) if return_to else str(default_redirect)
             return RedirectResponse(url=safe_redirect, headers=response.headers)
 
         @router.get("/auth/logout")
@@ -147,18 +147,20 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             request: Request,
             response: Response,
             connection: str = Query(),
+            scopes: Annotated[list[str] | None, Query()] = None,
+            return_to: str = Query(default=None),
             auth_client: AuthClient = Depends(get_auth_client),
         ):
             """
             Endpoint to initiate the connect account flow for linking a third-party account to the user's profile.
             Redirects the user to the Auth0 connect account URL.
             """
-            authorization_params = {
-                k: v for k, v in request.query_params.items() if k not in ["connection", "returnTo"]}
+            authorization_params = { 
+                k: v for k, v in request.query_params.items() if k not in ["connection", "returnTo", "scope"]}
 
-            return_to = request.query_params.get("returnTo")
             connect_account_url = await auth_client.start_connect_account(
                 connection=connection,
+                scopes=scopes,
                 app_state={"returnTo": return_to} if return_to else None,
                 authorization_params=authorization_params,
                 store_options={"request": request, "response": response},

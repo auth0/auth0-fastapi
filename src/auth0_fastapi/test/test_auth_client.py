@@ -408,6 +408,7 @@ class TestConnectedAccountFlow:
 
             result = await auth_client.start_connect_account(
                 connection="google-oauth2",
+                scopes=["openid", "profile", "email"],
                 app_state={"returnTo": "/profile"},
                 authorization_params={"prompt": "consent"},
             )
@@ -417,6 +418,7 @@ class TestConnectedAccountFlow:
                 options=ConnectAccountOptions(
                     connection="google-oauth2",
                     app_state={"returnTo": "/profile"},
+                    scopes=["openid", "profile", "email"],
                     authorization_params={"prompt": "consent"},
                 ), store_options=None)
 

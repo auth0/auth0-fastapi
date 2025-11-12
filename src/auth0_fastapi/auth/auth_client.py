@@ -90,6 +90,7 @@ class AuthClient:
     async def start_connect_account(
         self,
         connection: str,
+        scopes: list[str] | None = None,
         app_state: dict = None,
         authorization_params: dict = None,
         store_options: dict = None,
@@ -101,6 +102,7 @@ class AuthClient:
         """
         options = ConnectAccountOptions(
             connection=connection,
+            scopes=scopes,
             app_state=app_state,
             authorization_params=authorization_params
         )
