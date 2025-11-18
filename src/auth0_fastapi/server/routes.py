@@ -1,10 +1,11 @@
-from typing import Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
 
 from ..auth.auth_client import AuthClient
 from ..config import Auth0Config
+from ..errors import ConfigurationError
 from ..util import create_route_url, to_safe_redirect
 
 router = APIRouter()
@@ -26,6 +27,13 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
     """
     Conditionally register auth routes based on config.mount_routes and config.mount_connect_routes.
     """
+    if config.mount_connect_routes and config.mount_connected_account_routes:
+        # Connect routes uses the legacy account linking flow for token vault
+        # Connects Accounts is the preferred mechanism
+        # Both mount the `/auth/connect` route to initiate the flow
+        raise ConfigurationError(
+            "'mount_connect_routes' and 'mount_connected_account_routes' cannot be used together.")
+
     if config.mount_routes:
         @router.get("/auth/login")
         async def login(
@@ -58,25 +66,35 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
         ):
             """
             Endpoint to handle the callback after Auth0 authentication.
-            Processes the callback URL and completes the login flow.
+            Processes the callback URL and completes the login or connected account flow.
             Redirects the user to a post-login URL based on appState or a default.
             """
             full_callback_url = str(request.url)
+
             try:
-                session_data = await auth_client.complete_login(
-                    full_callback_url,
-                    store_options={"request": request, "response": response},
-                )
+                if "connect_code" in request.query_params and config.mount_connected_account_routes:
+                    connect_complete_response = await auth_client.complete_connect_account(
+                        full_callback_url, store_options={"request": request, "response": response})
+
+                    app_state = connect_complete_response.app_state or {}
+                else:
+                    session_data = await auth_client.complete_login(
+                        full_callback_url, store_options={"request": request, "response": response})
+
+                    # Extract the returnTo URL from the appState if available.
+                    app_state = session_data.get("app_state", {})
             except Exception as e:
                 raise HTTPException(status_code=400, detail=str(e))
 
+
             # Extract the returnTo URL from the appState if available.
-            return_to = session_data.get("app_state", {}).get("returnTo")
+            return_to = app_state.get("returnTo")
 
             # Assuming config is stored on app.state
             default_redirect = auth_client.config.app_base_url
 
-            return RedirectResponse(url=return_to or default_redirect, headers=response.headers)
+            safe_redirect = to_safe_redirect(return_to, default_redirect) if return_to else str(default_redirect)
+            return RedirectResponse(url=safe_redirect, headers=response.headers)
 
         @router.get("/auth/logout")
         async def logout(
@@ -123,7 +141,32 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
                 raise HTTPException(status_code=400, detail=str(e))
             return Response(status_code=204)
 
+    if config.mount_connected_account_routes:
+        @router.get("/auth/connect")
+        async def connect_account(
+            request: Request,
+            response: Response,
+            connection: str = Query(),
+            scopes: Annotated[Optional[list[str]], Query()] = None,
+            return_to: str = Query(default=None, alias="returnTo"),
+            auth_client: AuthClient = Depends(get_auth_client),
+        ):
+            """
+            Endpoint to initiate the connect account flow for linking a third-party account to the user's profile.
+            Redirects the user to the Auth0 connect account URL.
+            """
+            authorization_params = {
+                k: v for k, v in request.query_params.items() if k not in ["connection", "returnTo", "scopes"]}
 
+            connect_account_url = await auth_client.start_connect_account(
+                connection=connection,
+                scopes=scopes,
+                app_state={"returnTo": return_to} if return_to else None,
+                authorization_params=authorization_params,
+                store_options={"request": request, "response": response},
+            )
+
+            return RedirectResponse(url=connect_account_url, headers=response.headers)
 
     if config.mount_connect_routes:
 

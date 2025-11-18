@@ -12,6 +12,16 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 
 
+class ConfigurationError(Auth0Error):
+    """
+    Error raised when an invalid configuration is used.
+    """
+    code = "configuration_error"
+
+    def __init__(self, message=None):
+        super().__init__(message or "An invalid configuration was provided.")
+        self.name = "ConfigurationError"
+
 def auth0_exception_handler(request: Request, exc: Auth0Error):
     """
     Exception handler for Auth0 SDK errors.

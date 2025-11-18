@@ -1,7 +1,14 @@
 
 # Imported from auth0-server-python
+from typing import Optional
+
 from auth0_server_python.auth_server.server_client import ServerClient
-from auth0_server_python.auth_types import LogoutOptions, StartInteractiveLoginOptions
+from auth0_server_python.auth_types import (
+    CompleteConnectAccountResponse,
+    ConnectAccountOptions,
+    LogoutOptions,
+    StartInteractiveLoginOptions,
+)
 from fastapi import HTTPException, Request, Response, status
 
 from auth0_fastapi.config import Auth0Config
@@ -81,6 +88,38 @@ class AuthClient:
         Returns a dictionary with the session state data.
         """
         return await self.client.complete_interactive_login(callback_url, store_options=store_options)
+
+    async def start_connect_account(
+        self,
+        connection: str,
+        scopes: Optional[list[str]] = None,
+        app_state: dict = None,
+        authorization_params: dict = None,
+        store_options: dict = None,
+    ) -> str:
+        """
+        Initiates the connected account process.
+        Optionally, an app_state dictionary can be passed to persist additional state.
+        Returns the connect URL to redirect the user.
+        """
+        options = ConnectAccountOptions(
+            connection=connection,
+            scopes=scopes,
+            app_state=app_state,
+            authorization_params=authorization_params
+        )
+        return await self.client.start_connect_account(options=options, store_options=store_options)
+
+    async def complete_connect_account(
+        self,
+        url: str,
+        store_options: dict = None,
+    ) -> CompleteConnectAccountResponse:
+        """
+        Completes the connect account process using the callback URL.
+        Returns the completed connect account response.
+        """
+        return await self.client.complete_connect_account(url, store_options=store_options)
 
     async def logout(
         self,
