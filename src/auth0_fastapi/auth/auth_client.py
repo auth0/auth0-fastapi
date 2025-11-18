@@ -1,5 +1,6 @@
 
 # Imported from auth0-server-python
+from typing import Optional
 from auth0_server_python.auth_server.server_client import ServerClient
 from auth0_server_python.auth_types import (
     CompleteConnectAccountResponse,
@@ -90,7 +91,7 @@ class AuthClient:
     async def start_connect_account(
         self,
         connection: str,
-        scopes: list[str] | None = None,
+        scopes: Optional[list[str]] = None,
         app_state: dict = None,
         authorization_params: dict = None,
         store_options: dict = None,
