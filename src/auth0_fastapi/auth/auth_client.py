@@ -1,6 +1,7 @@
 
 # Imported from auth0-server-python
 from typing import Optional
+
 from auth0_server_python.auth_server.server_client import ServerClient
 from auth0_server_python.auth_types import (
     CompleteConnectAccountResponse,
