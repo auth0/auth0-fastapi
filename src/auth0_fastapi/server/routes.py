@@ -147,7 +147,7 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             request: Request,
             response: Response,
             connection: str = Query(),
-            scopes: Annotated[list[str] | None, Query()] = None,
+            scopes: Annotated[Optional[list[str]], Query()] = None,
             return_to: str = Query(default=None, alias="returnTo"),
             auth_client: AuthClient = Depends(get_auth_client),
         ):
