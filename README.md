@@ -189,14 +189,20 @@ config = Auth0Config(
 )
 ```
 
-Additionally, by setting `mount_connect_routes` to `True` (it's `False` by default) the SDK also can also mount 4 routes useful for account-linking:
+Additionally, by setting `mount_connected_account_routes` to `True` (it's `False` by default) the SDK also can also mount routes useful for using Token Vault with Connected Accounts:
+
+1. `/auth/connect`: the route that the user will be redirected to to initiate account linking
+2. `/auth/callback`: will also handle the callback behaviour from the Connected Accounts flow 
+
+Alternatively, by setting `mount_connect_routes` to `True` (it's `False` by default) the SDK also can also mount 4 routes useful for account-linking:
 
 1. `/auth/connect`: the route that the user will be redirected to to initiate account linking
 2. `/auth/connect/callback`: the callback route for account linking that must be added to your Auth0 application's Allowed Callback URLs
 3. `/auth/unconnect`: the route that the user will be redirected to to initiate account linking
 4. `/auth/unconnect/callback`: the callback route for account linking that must be added to your Auth0 application's Allowed Callback URLs
 
-
+ These two behaviours cannot be used simultaneously. This form of account-linking is now considered legacy, use of Connected Accounts is preferred.
+ 
 #### Protecting Routes
 
 In order to protect a FastAPI route, you can use the SDK's `get_session()` method and pass it through `Depends`:
