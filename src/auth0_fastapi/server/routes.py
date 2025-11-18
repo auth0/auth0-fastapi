@@ -1,12 +1,12 @@
-from typing import Optional, Annotated
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
 
 from ..auth.auth_client import AuthClient
 from ..config import Auth0Config
-from ..util import create_route_url, to_safe_redirect
 from ..errors import ConfigurationError
+from ..util import create_route_url, to_safe_redirect
 
 router = APIRouter()
 
@@ -33,7 +33,7 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
         # Both mount the `/auth/connect` route to initiate the flow
         raise ConfigurationError(
             "'mount_connect_routes' and 'mount_connected_account_routes' cannot be used together.")
-    
+
     if config.mount_routes:
         @router.get("/auth/login")
         async def login(
@@ -155,7 +155,7 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             Endpoint to initiate the connect account flow for linking a third-party account to the user's profile.
             Redirects the user to the Auth0 connect account URL.
             """
-            authorization_params = { 
+            authorization_params = {
                 k: v for k, v in request.query_params.items() if k not in ["connection", "returnTo", "scopes"]}
 
             connect_account_url = await auth_client.start_connect_account(
