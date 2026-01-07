@@ -35,14 +35,14 @@ trio = ["trio (>=0.31.0)"]
 
 [[package]]
 name = "auth0-server-python"
-version = "1.0.0b6"
+version = "1.0.0b7"
 description = "Auth0 server-side Python SDK"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "auth0_server_python-1.0.0b6-py3-none-any.whl", hash = "sha256:2e59838919550d4ad643bc2332be1965ade61a8e0b95273ccaf2fc269cbd1d7f"},
-    {file = "auth0_server_python-1.0.0b6.tar.gz", hash = "sha256:028dae820ecec556c91bf9015eb7ab7ce7712ee2e954560fda783a9675a3016f"},
+    {file = "auth0_server_python-1.0.0b7-py3-none-any.whl", hash = "sha256:5e290759324214ab16f30854236955f87b72afbeabcf6de1106389496c658822"},
+    {file = "auth0_server_python-1.0.0b7.tar.gz", hash = "sha256:36110c3e0d3ae590e006d0573c7f6a19709f6ff5f8001451bbcc694cd951dac6"},
 ]
 
 [package.dependencies]
