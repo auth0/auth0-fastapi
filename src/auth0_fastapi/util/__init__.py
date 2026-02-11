@@ -72,20 +72,20 @@ def build_request_base_url(request: "Request") -> str:
     """
     Build base URL from request headers.
     Supports proxy headers (x-forwarded-host, x-forwarded-proto) for MCD scenarios.
-    
+
     Args:
         request: FastAPI Request object
-        
+
     Returns:
         Base URL string (e.g., "https://app.example.com")
     """
     host = request.headers.get('x-forwarded-host') or request.headers.get('host', 'localhost')
     proto = request.headers.get('x-forwarded-proto', 'http')
-    
+
     # Remove port from host if it's standard (443 for https, 80 for http)
     if ':443' in host and proto == 'https':
         host = host.replace(':443', '')
     elif ':80' in host and proto == 'http':
         host = host.replace(':80', '')
-    
+
     return f"{proto}://{host}"

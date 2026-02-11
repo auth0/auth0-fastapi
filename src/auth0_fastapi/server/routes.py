@@ -45,7 +45,7 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             Endpoint to initiate the login process.
             Optionally accepts a 'return_to' query parameter and passes it as part of the app state.
             Redirects the user to the Auth0 authorization URL.
-            
+
             When domain is a callable (MCD), the redirect_uri is built dynamically
             from the request host to ensure proper domain handling.
             """
@@ -53,12 +53,12 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             return_to: Optional[str] = request.query_params.get("returnTo")
             authorization_params = {k: v for k, v in request.query_params.items() if k not in [
                 "returnTo"]}
-            
+
             # Build dynamic redirect_uri from request host when domain is callable
             if callable(auth_client.config.domain):
                 base_url = build_request_base_url(request)
                 authorization_params["redirect_uri"] = f"{base_url}/auth/callback"
-            
+
             auth_url = await auth_client.start_login(
                 app_state={"returnTo": return_to} if return_to else None,
                 authorization_params=authorization_params,
@@ -119,7 +119,7 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             Endpoint to handle logout.
             Clears the session cookie (if applicable) and generates a logout URL,
             then redirects the user to Auth0's logout endpoint.
-            
+
             For MCD, builds dynamic returnTo URL based on incoming request host.
             """
             return_to: Optional[str] = request.query_params.get("returnTo")
@@ -129,7 +129,7 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
                     default_redirect = build_request_base_url(request)
                 else:
                     default_redirect = str(auth_client.config.app_base_url)
-                
+
                 logout_url = await auth_client.logout(
                     return_to=return_to or default_redirect,
                     store_options={"request": request, "response": response},  # Pass request for MCD

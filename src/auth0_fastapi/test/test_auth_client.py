@@ -500,27 +500,27 @@ class TestAuthClientMultipleCustomDomains:
 
         with patch('auth0_fastapi.auth.auth_client.ServerClient') as mock_server_client:
             client = AuthClient(config)
-            
+
             # Verify ServerClient was called exactly once
             mock_server_client.assert_called_once()
             _, kwargs = mock_server_client.call_args
-            
+
             # Verify domain resolver is passed by reference
             assert kwargs['domain'] is domain_resolver
             assert callable(kwargs['domain'])
-            
+
             # Verify other critical parameters are passed correctly
             assert kwargs['client_id'] == "test_client_id"
             assert kwargs['client_secret'] == "test_client_secret"
             assert kwargs['secret'] == "test_secret_key_minimum_32_characters"
             assert 'redirect_uri' in kwargs
             assert kwargs['redirect_uri'] == "https://example.com/auth/callback"
-            
+
             # Verify authorization_params includes redirect_uri and audience
             assert 'authorization_params' in kwargs
             assert kwargs['authorization_params']['redirect_uri'] == "https://example.com/auth/callback"
             assert kwargs['authorization_params'].get('audience') == "https://api.example.com"
-            
+
             # Verify client was created
             assert client is not None
             assert client.config is config
@@ -543,7 +543,7 @@ class TestAuthClientMultipleCustomDomains:
 
         with patch('auth0_fastapi.auth.auth_client.ServerClient') as mock_server_client:
             client = AuthClient(config)
-            
+
             mock_server_client.assert_called_once()
             _, kwargs = mock_server_client.call_args
             # AuthClient still passes redirect_uri - routes will override dynamically
@@ -551,7 +551,7 @@ class TestAuthClientMultipleCustomDomains:
             assert kwargs['redirect_uri'] == "https://example.com/auth/callback"
             assert 'authorization_params' in kwargs
             assert kwargs['authorization_params']['redirect_uri'] == "https://example.com/auth/callback"
-            
+
             # Verify client was created successfully
             assert client is not None
             assert client.config.domain is domain_resolver
@@ -592,10 +592,10 @@ class TestAuthClientMultipleCustomDomains:
             assert 'store_options' in call_kwargs
             assert call_kwargs['store_options']['request'] is mock_request
             assert call_kwargs['store_options']['response'] is mock_response
-            
+
             # Verify the return value is passed through
             assert result == "https://auth0.com/authorize"
-     
+
     def test_auth_client_stores_config_with_domain_resolver(self):
         """Test that AuthClient properly stores config with domain resolver."""
         async def domain_resolver(context):
