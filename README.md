@@ -27,6 +27,7 @@
 
 - **Fully Integrated Auth Flows**: Automatic routes for `/auth/login`, `/auth/logout`, `/auth/callback`, etc.
 - **Session-Based**: Uses secure cookies to store user sessions, either stateless (all data in cookie) or stateful (data in a database).
+- **Multiple Custom Domains (MCD)**: Support for multi-tenant applications with different Auth0 domains per tenant.
 - **Account Linking**: Optional routes for linking multiple social or username/password accounts into a single Auth0 profile.
 - **Backchannel Logout**: Receive logout tokens from Auth0 to invalidate sessions server-side.
 - **Extensible**: Swap in your own store implementations or tune existing ones (cookie name, expiration, etc.)
@@ -264,6 +265,37 @@ config = Auth0Config(
 ```
 
 The `AUTH0_AUDIENCE` is the identifier of the API you want to call. You can find this in the [APIs section of the Auth0 Dashboard](https://manage.auth0.com/#/apis/).
+
+## Multiple Custom Domains (MCD)
+
+For multi-tenant applications where each tenant uses a different Auth0 domain, pass a callable instead of a static domain string:
+
+```python
+from auth0_server_python.auth_types import DomainResolverContext
+
+async def domain_resolver(context: DomainResolverContext) -> str:
+    """Resolve Auth0 domain based on request host."""
+    host = context.request_headers.get("host", "").split(":")[0]
+    return {
+        "tenant-a.myapp.com": "tenant-a.auth0.com",
+        "tenant-b.myapp.com": "tenant-b.auth0.com",
+    }.get(host, "default.auth0.com")
+
+config = Auth0Config(
+    domain=domain_resolver,  # Callable instead of string
+    client_id="YOUR_CLIENT_ID",
+    client_secret="YOUR_CLIENT_SECRET",
+    app_base_url="https://myapp.com",
+    secret="YOUR_SESSION_SECRET",
+)
+```
+
+When using MCD, the SDK automatically:
+- Builds dynamic `redirect_uri` based on the incoming request host
+- Stores the origin domain in the session for domain-isolated token refresh
+- Validates tokens against the correct issuer
+
+For detailed usage patterns, see [examples/MultipleCustomDomains.md](./examples/MultipleCustomDomains.md).
 
 ## Feedback
 

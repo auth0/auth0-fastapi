@@ -1,5 +1,8 @@
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 from urllib.parse import urljoin, urlparse
+
+if TYPE_CHECKING:
+    from fastapi import Request
 
 
 def ensure_no_leading_slash(url: str) -> str:
@@ -63,3 +66,26 @@ def to_safe_redirect(dangerous_redirect: str, safe_base_url: str) -> Optional[st
     if route_origin == safe_origin:
         return route_url
     return None
+
+
+def build_request_base_url(request: "Request") -> str:
+    """
+    Build base URL from request headers.
+    Supports proxy headers (x-forwarded-host, x-forwarded-proto) for MCD scenarios.
+    
+    Args:
+        request: FastAPI Request object
+        
+    Returns:
+        Base URL string (e.g., "https://app.example.com")
+    """
+    host = request.headers.get('x-forwarded-host') or request.headers.get('host', 'localhost')
+    proto = request.headers.get('x-forwarded-proto', 'http')
+    
+    # Remove port from host if it's standard (443 for https, 80 for http)
+    if ':443' in host and proto == 'https':
+        host = host.replace(':443', '')
+    elif ':80' in host and proto == 'http':
+        host = host.replace(':80', '')
+    
+    return f"{proto}://{host}"

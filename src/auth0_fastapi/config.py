@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Callable, Optional, Union
 
 from pydantic import AnyUrl, BaseModel, Field
 
@@ -7,7 +7,7 @@ class Auth0Config(BaseModel):
     """
     Configuration settings for the FastAPI SDK integrating auth0-server-python.
     """
-    domain: str
+    domain: Union[str, Callable] = Field(..., description="Auth0 domain - either a static string or a callable for dynamic custom domain resolution")
     client_id: str = Field(..., alias="clientId")
     client_secret: str = Field(..., alias="clientSecret")
     app_base_url: AnyUrl = Field(..., alias="appBaseUrl", description="Base URL of your application (e.g., https://example.com)")
