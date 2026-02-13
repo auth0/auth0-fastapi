@@ -4,7 +4,7 @@ This guide covers usage patterns for implementing Multiple Custom Domains in you
 
 ## Overview
 
-MCD allows a single application to serve multiple tenants, each with their own Auth0 domain. This is useful for:
+MCD allows a single application to use multiple custom domains configured on the same Auth0 tenant. This is useful for:
 
 ## Basic Setup
 
@@ -145,7 +145,7 @@ async def domain_resolver(context: DomainResolverContext) -> str:
 
 ## Auth0 Dashboard Configuration
 
-For MCD to work, configure each Auth0 tenant:
+For MCD to work, configure your Auth0 application:
 
 1. **Allowed Callback URLs**: Add all tenant callback URLs
    ```
