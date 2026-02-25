@@ -665,6 +665,31 @@ class TestMCDSupport:
         # Verify they're different
         assert result_a != result_b
 
+    def test_build_url_non_standard_port_not_corrupted_http(self):
+        """Test that non-standard ports starting with 80 are not corrupted."""
+        from auth0_fastapi.util import build_request_base_url
+
+        request = Mock()
+        request.headers = {
+            "host": "example.com:8080",
+        }
+
+        result = build_request_base_url(request)
+        assert result == "http://example.com:8080"
+
+    def test_build_url_non_standard_port_not_corrupted_https(self):
+        """Test that non-standard ports starting with 443 are not corrupted."""
+        from auth0_fastapi.util import build_request_base_url
+
+        request = Mock()
+        request.headers = {
+            "host": "example.com:4430",
+            "x-forwarded-proto": "https"
+        }
+
+        result = build_request_base_url(request)
+        assert result == "https://example.com:4430"
+
     # =========================================================================
     # Login route MCD tests
     # =========================================================================

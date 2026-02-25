@@ -83,9 +83,9 @@ def build_request_base_url(request: "Request") -> str:
     proto = request.headers.get('x-forwarded-proto', 'http')
 
     # Remove port from host if it's standard (443 for https, 80 for http)
-    if ':443' in host and proto == 'https':
-        host = host.replace(':443', '')
-    elif ':80' in host and proto == 'http':
-        host = host.replace(':80', '')
+    if host.endswith(':443') and proto == 'https':
+        host = host[:-4]
+    elif host.endswith(':80') and proto == 'http':
+        host = host[:-3]
 
     return f"{proto}://{host}"

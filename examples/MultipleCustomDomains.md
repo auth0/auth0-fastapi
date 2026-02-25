@@ -1,10 +1,12 @@
 # Multiple Custom Domains (MCD)
 
-This guide covers usage patterns for implementing Multiple Custom Domains in your FastAPI application.
+MCD lets you resolve the Auth0 domain per request while keeping a single `AuthClient` instance. This is useful when your application uses multiple custom domains configured on the same Auth0 tenant.
 
-## Overview
+**Example:**
+- `https://acme.yourapp.com` → Custom domain: `auth.acme.com`
+- `https://globex.yourapp.com` → Custom domain: `auth.globex.com`
 
-MCD allows a single application to use multiple custom domains configured on the same Auth0 tenant. This is useful for:
+MCD is enabled by providing a **domain resolver function** instead of a static domain string.
 
 ## Basic Setup
 
@@ -57,6 +59,8 @@ config = Auth0Config(
 auth_client = AuthClient(config)
 ```
 
+> **Note:** In resolver mode, the SDK builds the `redirect_uri` dynamically from the request host. You do not need to set it manually. If you override `redirect_uri` in `authorization_params`, the SDK uses your value as-is.
+
 ## Usage Patterns
 
 ### Pattern 1: Host Header Mapping
@@ -76,6 +80,8 @@ async def domain_resolver(context: DomainResolverContext) -> str:
 ```
 
 ### Pattern 2: Subdomain Extraction
+
+> **Warning:** This pattern constructs the Auth0 domain from raw header input. An attacker who controls the `Host` header can influence the resolved domain. Use an allowlist (Pattern 1) for production deployments. See [Security Considerations](#use-an-allowlist-in-your-resolver).
 
 Extract tenant from subdomain:
 
@@ -196,11 +202,55 @@ When MCD is enabled, the SDK:
 4. **Token Refresh**: Uses session's stored domain (not current request domain)
 5. **Logout**: Resolves current domain for logout URL
 
+## Session Behavior in Resolver Mode
+
+In resolver mode, sessions are bound to the domain that created them. On each request, the SDK compares the session's stored domain against the current resolved domain:
+
+- `get_user()` and `get_session()` return `None` on domain mismatch.
+- `get_access_token()` raises `AccessTokenError` on domain mismatch.
+- Token refresh uses the session's stored domain, not the current request domain.
+
+> **Warning:** If you switch from a static domain string to a resolver function, existing sessions that do not include a stored domain continue to work — the SDK treats the absent domain field as valid. New sessions will store the resolved domain automatically. Once old sessions expire, all sessions will be domain-aware.
+
+## Discovery Cache
+
+The SDK caches OIDC metadata and JWKS per domain in memory (LRU eviction, 600-second TTL, up to 100 domains). This avoids repeated network calls when serving multiple domains. The cache is shared across all requests to the same `AuthClient` instance.
+
 ## Security Considerations
 
-- **Session Isolation**: Sessions are bound to their origin domain. A session created on `tenant-a.myapp.com` cannot be used on `tenant-b.myapp.com`
+- **Session Isolation**: Sessions are bound to their origin domain. A session created on one custom domain cannot be used on another.
 - **Issuer Validation**: Token issuer is validated against the expected domain (with normalization for trailing slashes and case)
 - **Token Refresh**: Refresh tokens are used with their original domain's token endpoint
+- **Redirect URI Protection**: Auth0 rejects authorization requests where `redirect_uri` is not in the application's Allowed Callback URLs, preventing redirect-based attacks even if host headers are spoofed.
+
+### Use an Allowlist in Your Resolver
+
+The SDK passes request headers to your domain resolver via `DomainResolverContext`. These headers come directly from the HTTP request and can be spoofed. Always use a mapping or allowlist — never construct domains from raw header values:
+
+```python
+# Safe: unknown hosts fall back to default
+async def domain_resolver(context: DomainResolverContext) -> str:
+    host = context.request_headers.get("host", "").split(":")[0]
+    return DOMAIN_MAP.get(host, DEFAULT_DOMAIN)
+
+# Risky: attacker sends Host: evil.myapp.com → evil.auth0.com
+async def domain_resolver(context: DomainResolverContext) -> str:
+    tenant = context.request_headers.get("host", "").split(".")[0]
+    return f"{tenant}.auth0.com"
+```
+
+### Trust Forwarded Headers Only Behind a Proxy
+
+Only use `x-forwarded-host` when behind a trusted reverse proxy. Consider adding `TrustedHostMiddleware`:
+
+```python
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["acme.myapp.com", "globex.myapp.com"]
+)
+```
 
 ## Complete Example
 
