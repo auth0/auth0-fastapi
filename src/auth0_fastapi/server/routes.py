@@ -156,7 +156,10 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
                     status_code=400, detail="Missing 'logout_token' in request body.")
 
             try:
-                await auth_client.handle_backchannel_logout(logout_token)
+                await auth_client.handle_backchannel_logout(
+                    logout_token,
+                    store_options={"request": request},
+                )
             except Exception as e:
                 raise HTTPException(status_code=400, detail=str(e))
             return Response(status_code=204)

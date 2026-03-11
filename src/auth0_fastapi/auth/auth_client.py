@@ -2,6 +2,9 @@
 # Imported from auth0-server-python
 from typing import Optional
 
+from auth0_fastapi.config import Auth0Config
+from auth0_fastapi.stores.cookie_transaction_store import CookieTransactionStore
+from auth0_fastapi.stores.stateless_state_store import StatelessStateStore
 from auth0_server_python.auth_server.server_client import ServerClient
 from auth0_server_python.auth_types import (
     CompleteConnectAccountResponse,
@@ -10,10 +13,6 @@ from auth0_server_python.auth_types import (
     StartInteractiveLoginOptions,
 )
 from fastapi import HTTPException, Request, Response, status
-
-from auth0_fastapi.config import Auth0Config
-from auth0_fastapi.stores.cookie_transaction_store import CookieTransactionStore
-from auth0_fastapi.stores.stateless_state_store import StatelessStateStore
 
 
 class AuthClient:
@@ -141,11 +140,12 @@ class AuthClient:
     async def handle_backchannel_logout(
         self,
         logout_token: str,
+        store_options: dict = None,
     ) -> None:
         """
         Processes a backchannel logout using the provided logout token.
         """
-        return await self.client.handle_backchannel_logout(logout_token)
+        return await self.client.handle_backchannel_logout(logout_token, store_options=store_options)
 
     async def start_link_user(
         self,

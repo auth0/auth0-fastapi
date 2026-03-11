@@ -176,7 +176,7 @@ For MCD to work, configure your Auth0 application:
 Handle domain resolver errors gracefully:
 
 ```python
-from auth0_server_python.errors import DomainResolverError
+from auth0_server_python.error import DomainResolverError
 
 async def domain_resolver(context: DomainResolverContext) -> str:
     host = context.request_headers.get("host", "").split(":")[0]
@@ -196,8 +196,8 @@ async def domain_resolver(context: DomainResolverContext) -> str:
 
 When MCD is enabled, the SDK:
 
-1. **Login**: Resolves domain from request, builds dynamic `redirect_uri`, stores `origin_domain` in transaction
-2. **Callback**: Retrieves `origin_domain` from transaction, exchanges code with correct token endpoint, validates issuer
+1. **Login**: Resolves domain from request, builds dynamic `redirect_uri`, stores `domain` in transaction
+2. **Callback**: Retrieves `domain` from transaction, derives issuer from OIDC metadata, exchanges code with correct token endpoint, validates issuer
 3. **Session**: Stores `domain` field in session for future requests
 4. **Token Refresh**: Uses session's stored domain (not current request domain)
 5. **Logout**: Resolves current domain for logout URL
@@ -210,7 +210,23 @@ In resolver mode, sessions are bound to the domain that created them. On each re
 - `get_access_token()` raises `AccessTokenError` on domain mismatch.
 - Token refresh uses the session's stored domain, not the current request domain.
 
-> **Warning:** If you switch from a static domain string to a resolver function, existing sessions that do not include a stored domain continue to work — the SDK treats the absent domain field as valid. New sessions will store the resolved domain automatically. Once old sessions expire, all sessions will be domain-aware.
+> **Note:** When moving from a static domain to a resolver function, existing sessions that lack a `domain` field continue to work. The SDK uses a three-tier fallback to determine the session's domain: (1) `session.domain`, (2) the static domain if configured, (3) the hostname extracted from the user's `iss` claim. New sessions store the resolved domain automatically. See [Legacy Sessions](#legacy-sessions) for details.
+
+## Legacy Sessions
+
+When moving from a static domain setup to resolver mode, existing sessions can continue
+to work if the resolver returns the same Auth0 domain that was used for those legacy sessions.
+
+The SDK determines the session's domain using a fallback chain:
+
+1. **`session.domain`** — new sessions created after MCD was enabled store this field.
+2. **Static domain** — if a static `domain` string was configured, it is used as a fallback.
+3. **User's issuer claim** — the hostname is extracted from the `iss` claim in the user's
+   ID token (e.g., `https://tenant.auth0.com/` yields `tenant.auth0.com`).
+
+In most cases, the issuer claim already matches the Auth0 domain, so legacy sessions work
+without re-authentication. If the resolver returns a different domain that does not match
+any fallback tier, the user will need to sign in again.
 
 ## Discovery Cache
 

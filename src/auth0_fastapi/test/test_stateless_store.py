@@ -1,11 +1,10 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from auth0_server_python.auth_types import TransactionData
-from fastapi import Request, Response
-
 from auth0_fastapi.stores.cookie_transaction_store import CookieTransactionStore
 from auth0_fastapi.stores.stateless_state_store import StatelessStateStore
+from auth0_server_python.auth_types import TransactionData
+from fastapi import Request, Response
 
 
 @pytest.fixture

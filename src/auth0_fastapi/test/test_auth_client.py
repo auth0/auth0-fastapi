@@ -2,11 +2,10 @@ import asyncio
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from auth0_server_python.auth_types import CompleteConnectAccountResponse, ConnectAccountOptions
-from fastapi import HTTPException, Request, Response
-
 from auth0_fastapi.auth.auth_client import AuthClient
 from auth0_fastapi.config import Auth0Config
+from auth0_server_python.auth_types import CompleteConnectAccountResponse, ConnectAccountOptions
+from fastapi import HTTPException, Request, Response
 
 
 @pytest.fixture
@@ -242,7 +241,7 @@ class TestLogoutFlow:
             result = await auth_client.handle_backchannel_logout(logout_token)
 
             assert result is None
-            mock_backchannel.assert_called_once_with(logout_token)
+            mock_backchannel.assert_called_once_with(logout_token, store_options=None)
 
     @pytest.mark.asyncio
     async def test_backchannel_logout_with_invalid_token(self, auth_client):
