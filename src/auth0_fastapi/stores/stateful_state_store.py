@@ -6,6 +6,8 @@ from auth0_server_python.auth_types import StateData
 from auth0_server_python.store.abstract import StateStore
 from fastapi import Response
 
+from ..util import normalize_url
+
 
 class StatefulStateStore(StateStore):
     """
@@ -98,19 +100,39 @@ class StatefulStateStore(StateStore):
         options: Optional[dict[str, Any]] = None,
     ) -> None:
         """
-        Iterates over the session store keys and deletes sessions matching the logout token claims.
-        This method assumes the underlying store provides a 'keys' method.
+        Delete sessions matching the logout token claims.
+
+        Per the OIDC Back-Channel Logout spec, either ``sid`` or ``sub``
+        (or both) will be present.  Matching uses OR logic: a session
+        is considered a match if either claim matches.
+
+        When ``iss`` is present in claims, the token's issuer is validated
+        against the session's stored domain before deletion.
+        This prevents cross-domain session deletion in MCD deployments.
         """
-        # Example assumes the session store has an async keys() method.
+        target_sid = claims.get("sid")
+        target_sub = claims.get("sub")
+        target_iss = claims.get("iss")
+
         session_keys = await self.store.keys()
         for key in session_keys:
             data = await self.store.get(key)
-            if data:
-                try:
-                    state = StateData.parse_raw(data)
-                    internal = state.internal.dict() if state.internal else {}
-                    user = state.user.dict() if state.user else {}
-                    if internal.get("sid") == claims.get("sid") and user.get("sub") == claims.get("sub"):
-                        await self.store.delete(key)
-                except Exception:
+            if not data:
+                continue
+            try:
+                state = StateData.parse_raw(data)
+                internal = state.internal.dict() if state.internal else {}
+                user = state.user.dict() if state.user else {}
+
+                # Validate issuer matches session domain (prevents cross-domain deletion in MCD)
+                if target_iss and state.domain:
+                    if normalize_url(target_iss) != normalize_url(state.domain):
+                        continue
+
+                # OR logic: match on sid OR sub
+                matches_sid = target_sid and internal.get("sid") == target_sid
+                matches_sub = target_sub and user.get("sub") == target_sub
+                if matches_sid or matches_sub:
                     await self.store.delete(key)
+            except Exception:
+                continue

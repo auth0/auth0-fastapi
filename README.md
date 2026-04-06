@@ -280,15 +280,15 @@ async def domain_resolver(context: DomainResolverContext) -> str:
     """Resolve Auth0 domain based on request host."""
     host = context.request_headers.get("host", "").split(":")[0]
     return {
-        "tenant-a.myapp.com": "tenant-a.auth0.com",
-        "tenant-b.myapp.com": "tenant-b.auth0.com",
-    }.get(host, "default.auth0.com")
+        "brand-1.yourapp.com": "login.brand-1.com",
+        "brand-2.yourapp.com": "login.brand-2.com",
+    }.get(host, "login.yourapp.com")
 
 config = Auth0Config(
     domain=domain_resolver,  # Callable instead of string
     client_id="YOUR_CLIENT_ID",
     client_secret="YOUR_CLIENT_SECRET",
-    app_base_url="https://myapp.com",
+    app_base_url="https://yourapp.com",
     secret="YOUR_SESSION_SECRET",
 )
 ```

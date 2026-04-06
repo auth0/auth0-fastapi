@@ -68,6 +68,44 @@ def to_safe_redirect(dangerous_redirect: str, safe_base_url: str) -> Optional[st
     return None
 
 
+def normalize_url(value: str) -> str:
+    """
+    Normalize a URL or domain string for comparison.
+
+    Returns:
+        Normalized ``https://<host>`` string, or empty string if input
+        is empty.
+    """
+    if not value:
+        return ""
+
+    value = value.strip()
+
+    # Ensure a scheme is present so urlparse can extract the host
+    if "://" not in value:
+        value = f"https://{value}"
+
+    parsed = urlparse(value)
+
+    # Lowercase scheme and host
+    scheme = (parsed.scheme or "https").lower()
+    if scheme == "http":
+        scheme = "https"
+
+    host = (parsed.hostname or "").lower()
+    if not host:
+        return ""
+
+    # Remove default port
+    port = parsed.port
+    if port and ((scheme == "https" and port == 443) or (scheme == "http" and port == 80)):
+        port = None
+
+    netloc = f"{host}:{port}" if port else host
+
+    return f"{scheme}://{netloc}"
+
+
 def build_request_base_url(request: "Request") -> str:
     """
     Build base URL from request headers.
