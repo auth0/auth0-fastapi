@@ -2,9 +2,6 @@
 # Imported from auth0-server-python
 from typing import Optional
 
-from auth0_fastapi.config import Auth0Config
-from auth0_fastapi.stores.cookie_transaction_store import CookieTransactionStore
-from auth0_fastapi.stores.stateless_state_store import StatelessStateStore
 from auth0_server_python.auth_server.server_client import ServerClient
 from auth0_server_python.auth_types import (
     CompleteConnectAccountResponse,
@@ -13,6 +10,10 @@ from auth0_server_python.auth_types import (
     StartInteractiveLoginOptions,
 )
 from fastapi import HTTPException, Request, Response, status
+
+from auth0_fastapi.config import Auth0Config
+from auth0_fastapi.stores.cookie_transaction_store import CookieTransactionStore
+from auth0_fastapi.stores.stateless_state_store import StatelessStateStore
 
 
 class AuthClient:

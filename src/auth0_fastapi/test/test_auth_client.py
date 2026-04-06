@@ -2,10 +2,11 @@ import asyncio
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from auth0_fastapi.auth.auth_client import AuthClient
-from auth0_fastapi.config import Auth0Config
 from auth0_server_python.auth_types import CompleteConnectAccountResponse, ConnectAccountOptions
 from fastapi import HTTPException, Request, Response
+
+from auth0_fastapi.auth.auth_client import AuthClient
+from auth0_fastapi.config import Auth0Config
 
 
 @pytest.fixture

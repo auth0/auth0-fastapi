@@ -1,9 +1,10 @@
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-from auth0_fastapi.stores.stateful_state_store import StatefulStateStore
 from auth0_server_python.auth_types import StateData
 from fastapi import Request, Response
+
+from auth0_fastapi.stores.stateful_state_store import StatefulStateStore
 
 
 @pytest.fixture

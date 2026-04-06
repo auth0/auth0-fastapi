@@ -1,10 +1,11 @@
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from fastapi import HTTPException
+
 from auth0_fastapi.auth.auth_client import AuthClient
 from auth0_fastapi.config import Auth0Config
 from auth0_fastapi.server.routes import get_auth_client, register_auth_routes
-from fastapi import HTTPException
 
 
 @pytest.fixture
