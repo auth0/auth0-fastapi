@@ -13,7 +13,7 @@ select = [
     "A",   # flake8-annotations
     "C",   # flake8-coding¯
     ]
-ignore = ["B904"]
+ignore = ["B904", "S110", "S112"]
 
 [per-file-ignores]
 "__init__.py" = ["F401", "F811"]

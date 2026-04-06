@@ -110,9 +110,9 @@ class StatefulStateStore(StateStore):
         against the session's stored domain before deletion.
         This prevents cross-domain session deletion in MCD deployments.
         """
-        target_sid = claims.get("sid")
-        target_sub = claims.get("sub")
-        target_iss = claims.get("iss")
+        claim_sid = claims.get("sid")
+        claim_sub = claims.get("sub")
+        claim_iss = claims.get("iss")
 
         session_keys = await self.store.keys()
         for key in session_keys:
@@ -125,13 +125,13 @@ class StatefulStateStore(StateStore):
                 user = state.user.dict() if state.user else {}
 
                 # Validate issuer matches session domain (prevents cross-domain deletion in MCD)
-                if target_iss and state.domain:
-                    if normalize_url(target_iss) != normalize_url(state.domain):
+                if claim_iss and state.domain:
+                    if normalize_url(claim_iss) != normalize_url(state.domain):
                         continue
 
                 # OR logic: match on sid OR sub
-                matches_sid = target_sid and internal.get("sid") == target_sid
-                matches_sub = target_sub and user.get("sub") == target_sub
+                matches_sid = claim_sid and internal.get("sid") == claim_sid
+                matches_sub = claim_sub and user.get("sub") == claim_sub
                 if matches_sid or matches_sub:
                     await self.store.delete(key)
             except Exception:
