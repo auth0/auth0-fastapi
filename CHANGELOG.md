@@ -1,5 +1,14 @@
 # Change Log
 
+## [1.0.0b7](https://github.com/auth0/auth0-fastapi/tree/1.0.0b7) (2026-04-08)
+[Full Changelog](https://github.com/auth0/auth0-fastapi/compare/1.0.0b6...1.0.0b7)
+
+**Added**
+- Add Multiple Custom Domains (MCD) support [\#106](https://github.com/auth0/auth0-fastapi/pull/106) ([kishore7snehil](https://github.com/kishore7snehil))
+
+**Changed**
+- Replace Snyk with SCA scan and bump fastapi [\#118](https://github.com/auth0/auth0-fastapi/pull/118) ([kishore7snehil](https://github.com/kishore7snehil))
+
 ## [1.0.0b6](https://github.com/auth0/auth0-fastapi/tree/1.0.0b6) (2026-01-21)
 [Full Changelog](https://github.com/auth0/auth0-fastapi/compare/1.0.0b5...1.0.0b6)
 
