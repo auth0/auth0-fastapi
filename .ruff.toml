@@ -1,21 +1,23 @@
 line-length = 120
 target-version = "py39"
+
+[lint]
 select = [
     "E",   # pycodestyle errors
     "W",   # pycodestyle warnings
     "F",   # pyflakes
-    "I",   # isortbear
+    "I",   # isort
     "C4",  # flake8-comprehensions
     "UP",  # pyupgrade
     "S",   # bandit (security)
     "DTZ", # flake8-datetimez
     "G",   # flake8-logging-format
     "A",   # flake8-annotations
-    "C",   # flake8-coding¯
+    "C",   # flake8-coding
     ]
 ignore = ["B904", "S110", "S112"]
 
-[per-file-ignores]
+[lint.per-file-ignores]
 "__init__.py" = ["F401", "F811"]
 "src/auth0_fastapi/config.py" = ["E501"]
 "src/auth0_fastapi/server/routes.py" = ["C901"]
