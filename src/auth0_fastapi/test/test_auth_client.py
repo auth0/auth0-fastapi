@@ -242,7 +242,7 @@ class TestLogoutFlow:
             result = await auth_client.handle_backchannel_logout(logout_token)
 
             assert result is None
-            mock_backchannel.assert_called_once_with(logout_token)
+            mock_backchannel.assert_called_once_with(logout_token, store_options=None)
 
     @pytest.mark.asyncio
     async def test_backchannel_logout_with_invalid_token(self, auth_client):
@@ -440,3 +440,182 @@ class TestConnectedAccountFlow:
 
             assert result == mock_result
             mock_complete.assert_called_once_with(mock_callback_url, store_options=None)
+
+
+class TestAuthClientMultipleCustomDomains:
+    """Test AuthClient with Multiple Custom Domains support."""
+
+    def test_auth_client_with_callable_domain(self):
+        """Test that AuthClient accepts callable domain."""
+        async def domain_resolver(context):
+            return "tenant.auth0.com"
+
+        config = Auth0Config(
+            domain=domain_resolver,
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            app_base_url="https://example.com",
+            secret="test_secret_key_minimum_32_characters",
+        )
+
+        client = AuthClient(config)
+        assert client is not None
+        assert client.config.domain is domain_resolver
+        assert callable(client.config.domain)
+        assert client.client is not None  # ServerClient was created
+        assert client.config is config  # Config reference preserved
+
+    def test_auth_client_with_static_domain_still_works(self):
+        """Test backward compatibility with static string domain."""
+        config = Auth0Config(
+            domain="tenant.auth0.com",
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            app_base_url="https://example.com",
+            secret="test_secret_key_minimum_32_characters",
+        )
+
+        client = AuthClient(config)
+        assert client is not None
+        assert client.config.domain == "tenant.auth0.com"
+        assert isinstance(client.config.domain, str)
+        assert not callable(client.config.domain)
+
+    def test_auth_client_passes_domain_resolver_to_server_client(self):
+        """Test that domain resolver is passed to underlying ServerClient."""
+        async def domain_resolver(context):
+            return "tenant.auth0.com"
+
+        config = Auth0Config(
+            domain=domain_resolver,
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            app_base_url="https://example.com",
+            secret="test_secret_key_minimum_32_characters",
+            authorization_params={
+                "redirect_uri": "https://example.com/auth/callback"
+            },
+            audience="https://api.example.com",
+        )
+
+        with patch('auth0_fastapi.auth.auth_client.ServerClient') as mock_server_client:
+            client = AuthClient(config)
+
+            # Verify ServerClient was called exactly once
+            mock_server_client.assert_called_once()
+            _, kwargs = mock_server_client.call_args
+
+            # Verify domain resolver is passed by reference
+            assert kwargs['domain'] is domain_resolver
+            assert callable(kwargs['domain'])
+
+            # Verify other critical parameters are passed correctly
+            assert kwargs['client_id'] == "test_client_id"
+            assert kwargs['client_secret'] == "test_client_secret"
+            assert kwargs['secret'] == "test_secret_key_minimum_32_characters"
+            assert 'redirect_uri' in kwargs
+            assert kwargs['redirect_uri'] == "https://example.com/auth/callback"
+
+            # Verify authorization_params includes redirect_uri and audience
+            assert 'authorization_params' in kwargs
+            assert kwargs['authorization_params']['redirect_uri'] == "https://example.com/auth/callback"
+            assert kwargs['authorization_params'].get('audience') == "https://api.example.com"
+
+            # Verify client was created
+            assert client is not None
+            assert client.config is config
+
+    def test_redirect_uri_set_when_domain_is_callable(self):
+        """Test that redirect_uri is set in ServerClient even when domain is callable."""
+        async def domain_resolver(context):
+            return "tenant.auth0.com"
+
+        config = Auth0Config(
+            domain=domain_resolver,
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            app_base_url="https://example.com",
+            secret="test_secret_key_minimum_32_characters",
+            authorization_params={
+                "redirect_uri": "https://example.com/auth/callback"
+            }
+        )
+
+        with patch('auth0_fastapi.auth.auth_client.ServerClient') as mock_server_client:
+            client = AuthClient(config)
+
+            mock_server_client.assert_called_once()
+            _, kwargs = mock_server_client.call_args
+            # AuthClient still passes redirect_uri - routes will override dynamically
+            assert 'redirect_uri' in kwargs
+            assert kwargs['redirect_uri'] == "https://example.com/auth/callback"
+            assert 'authorization_params' in kwargs
+            assert kwargs['authorization_params']['redirect_uri'] == "https://example.com/auth/callback"
+
+            # Verify client was created successfully
+            assert client is not None
+            assert client.config.domain is domain_resolver
+
+    @pytest.mark.asyncio
+    async def test_domain_resolver_receives_request_context_through_store_options(self, mock_request, mock_response):
+        """Test that domain resolver receives context when called through AuthClient."""
+        received_context = None
+
+        async def domain_resolver(context):
+            nonlocal received_context
+            received_context = context
+            return "tenant.auth0.com"
+
+        config = Auth0Config(
+            domain=domain_resolver,
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            app_base_url="https://example.com",
+            secret="test_secret_key_minimum_32_characters",
+        )
+
+        client = AuthClient(config)
+        assert client is not None
+        assert callable(client.config.domain)
+
+        # Mock the underlying ServerClient method
+        with patch.object(client.client, 'start_interactive_login', new_callable=AsyncMock) as mock_start:
+            mock_start.return_value = "https://auth0.com/authorize"
+
+            result = await client.start_login(
+                store_options={"request": mock_request, "response": mock_response}
+            )
+
+            # Verify start_interactive_login was called with store_options
+            mock_start.assert_called_once()
+            call_kwargs = mock_start.call_args.kwargs
+            assert 'store_options' in call_kwargs
+            assert call_kwargs['store_options']['request'] is mock_request
+            assert call_kwargs['store_options']['response'] is mock_response
+
+            # Verify the return value is passed through
+            assert result == "https://auth0.com/authorize"
+
+    def test_auth_client_stores_config_with_domain_resolver(self):
+        """Test that AuthClient properly stores config with domain resolver."""
+        async def domain_resolver(context):
+            host = context.request_headers.get('host', '')
+            return f"{host}.auth0.com"
+
+        config = Auth0Config(
+            domain=domain_resolver,
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            app_base_url="https://example.com",
+            secret="test_secret_key_minimum_32_characters",
+        )
+
+        client = AuthClient(config)
+        assert client is not None
+        assert client.client is not None
+        assert client.config is config
+        assert client.config.domain is domain_resolver
+        assert callable(client.config.domain)
+        # Verify other config properties are accessible
+        assert client.config.client_id == "test_client_id"
+        assert str(client.config.app_base_url) == "https://example.com/"  # Pydantic normalizes with trailing slash

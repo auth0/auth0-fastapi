@@ -10,23 +10,24 @@
 
 ## Documentation
 
-- [Examples](https://github.com/auth0/auth0-server-python/blob/main/packages/auth0_server_python/examples) - examples for your different use cases.
+- [Examples](./examples) - examples for your different use cases.
 - [Docs Site](https://auth0.com/docs) - explore our docs site and learn more about Auth0.
 
 ## Getting Started
 
 - [1. Features](#1-features)
 - [2. Installation](#2-installation)
-- [3. Setup](#2-setup)
-  - [Minimal Setup](#minimal)
+- [3. Setup](#3-setup)
+  - [Minimal](#minimal)
+  - [Auth0 Dashboard Configurations](#auth0-dashboard-configurations)
   - [Advanced](#advanced)
 - [4. Routes](#4-routes)
-  - [Protecting Routes](#protecting-routes)
 
 ### 1. Features
 
 - **Fully Integrated Auth Flows**: Automatic routes for `/auth/login`, `/auth/logout`, `/auth/callback`, etc.
 - **Session-Based**: Uses secure cookies to store user sessions, either stateless (all data in cookie) or stateful (data in a database).
+- **Multiple Custom Domains (MCD)**: Support for applications using multiple custom domains on the same Auth0 tenant.
 - **Account Linking**: Optional routes for linking multiple social or username/password accounts into a single Auth0 profile.
 - **Backchannel Logout**: Receive logout tokens from Auth0 to invalidate sessions server-side.
 - **Extensible**: Swap in your own store implementations or tune existing ones (cookie name, expiration, etc.)
@@ -39,13 +40,14 @@
 pip install auth0-fastapi
 ```
 
-If you’re using Poetry:
+If you're using Poetry:
 
 ```shell
 poetry install auth0-fastapi
 ```
 
 ### 3. Setup
+
 #### Minimal
 
 ```python
@@ -84,7 +86,7 @@ app.state.auth_client = auth_client
 # 4) Conditionally register routes
 register_auth_routes(router, config)
 
-# 5) Include the SDK’s default routes
+# 5) Include the SDK's default routes
 app.include_router(router)
 
 
@@ -108,7 +110,7 @@ openssl rand -hex 64
 
 - The `APP_BASE_URL` is the URL that your application is running on. When developing locally, this is most commonly `http://localhost:3000`.
 
-> [!IMPORTANT]  
+> [!IMPORTANT]
 > You will need to register the following URLs in your Auth0 Application via the [Auth0 Dashboard](https://manage.auth0.com):
 >
 > - Add `http://localhost:3000/auth/callback` to the list of **Allowed Callback URLs**
@@ -116,7 +118,7 @@ openssl rand -hex 64
 
 #### Advanced
 
-If you need more control over session management, transaction cookies, or additional settings, here’s a more extensive setup.
+If you need more control over session management, transaction cookies, or additional settings, here's a more extensive setup.
 
 ##### Customizing the Cookie Stores
 
@@ -163,11 +165,11 @@ app.state.auth_client = auth_client
 # 4) Conditionally register routes
 register_auth_routes(router, config)
 
-# 5) Include the SDK’s default routes
+# 5) Include the SDK's default routes
 app.include_router(router)
 ```
 
-#### 4. Routes
+### 4. Routes
 
 The SDK for Web Applications mounts 4 main routes:
 
@@ -180,7 +182,7 @@ To disable this behavior, you can set the `mount_routes` option to `False` (it's
 
 ```python
 config = Auth0Config(
-    domain="YOUR_AUTH0_DOMAIN",    
+    domain="YOUR_AUTH0_DOMAIN",
     client_id="YOUR_CLIENT_ID",
     client_secret="YOUR_CLIENT_SECRET",
     app_base_url="http://localhost:3000",
@@ -192,7 +194,7 @@ config = Auth0Config(
 Additionally, by setting `mount_connected_account_routes` to `True` (it's `False` by default) the SDK also can also mount routes useful for using Token Vault with Connected Accounts:
 
 1. `/auth/connect`: the route that the user will be redirected to to initiate account linking
-2. `/auth/callback`: will also handle the callback behaviour from the Connected Accounts flow 
+2. `/auth/callback`: will also handle the callback behaviour from the Connected Accounts flow
 
 Alternatively, by setting `mount_connect_routes` to `True` (it's `False` by default) the SDK also can also mount 4 routes useful for account-linking:
 
@@ -202,8 +204,10 @@ Alternatively, by setting `mount_connect_routes` to `True` (it's `False` by defa
 4. `/auth/unconnect/callback`: the callback route for account linking that must be added to your Auth0 application's Allowed Callback URLs
 
  These two behaviours cannot be used simultaneously. This form of account-linking is now considered legacy, use of Connected Accounts is preferred.
- 
-#### Protecting Routes
+
+## Usage
+
+### Protecting Routes
 
 In order to protect a FastAPI route, you can use the SDK's `get_session()` method and pass it through `Depends`:
 
@@ -220,7 +224,7 @@ config = Auth0Config(
     app_base_url="http://localhost:3000",  # or your production URL
     secret="YOUR_SESSION_SECRET",
     authorization_params={
-        "scope": "openid profile",         # required get the user information from Auth0
+        "scope": "openid profile",         # required to get user information from Auth0
     }
 )
 
@@ -233,7 +237,7 @@ async def profile(request: Request, response: Response, session=Depends(auth_cli
     user = await auth_client.client.get_user(store_options=store_options)
     if not user:
         return {"error": "User not authenticated"}
-    
+
     return {
         "message": "Your Profile",
         "user": user,
@@ -241,12 +245,12 @@ async def profile(request: Request, response: Response, session=Depends(auth_cli
     }
 ```
 
-> [!IMPORTANT]  
+> [!IMPORTANT]
 > The above is to protect server-side rendering routes by the means of a session, and not API routes using a bearer token.
-> The `authorization_params` passing the `scope` is used in to retrieve the user information from Auth0. Can be omitted if you don't need the user information.
+> The `authorization_params` passing the `scope` is used to retrieve the user information from Auth0. Can be omitted if you don't need the user information.
 
 
-#### Requesting an Access Token to call an API
+### Requesting an Access Token to call an API
 
 If you need to call an API on behalf of the user, you want to specify the `audience` parameter when registering the plugin. This will make the SDK request an access token for the specified audience when the user logs in.
 
@@ -264,6 +268,38 @@ config = Auth0Config(
 ```
 
 The `AUTH0_AUDIENCE` is the identifier of the API you want to call. You can find this in the [APIs section of the Auth0 Dashboard](https://manage.auth0.com/#/apis/).
+
+### Multiple Custom Domains (MCD)
+
+For applications using multiple custom domains on the same Auth0 tenant, pass a callable instead of a static domain string:
+
+```python
+from auth0_server_python.auth_types import DomainResolverContext
+
+async def domain_resolver(context: DomainResolverContext) -> str:
+    """Resolve Auth0 domain based on request host."""
+    host = context.request_headers.get("host", "").split(":")[0]
+    return {
+        "brand-1.yourapp.com": "login.brand-1.com",
+        "brand-2.yourapp.com": "login.brand-2.com",
+    }.get(host, "login.yourapp.com")
+
+config = Auth0Config(
+    domain=domain_resolver,  # Callable instead of string
+    client_id="YOUR_CLIENT_ID",
+    client_secret="YOUR_CLIENT_SECRET",
+    app_base_url="https://yourapp.com",
+    secret="YOUR_SESSION_SECRET",
+)
+```
+
+When using MCD, the SDK automatically:
+- Builds dynamic `redirect_uri` based on the incoming request host
+- Stores the resolved domain in the session for domain-isolated token refresh
+- Validates tokens against the correct issuer (derived from OIDC metadata)
+- Handles legacy sessions (created before MCD) via a fallback chain
+
+For detailed usage patterns, see [examples/MultipleCustomDomains.md](./examples/MultipleCustomDomains.md).
 
 ## Feedback
 

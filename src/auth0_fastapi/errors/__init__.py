@@ -5,6 +5,7 @@ from auth0_server_python.error import (
     ApiError,
     Auth0Error,
     BackchannelLogoutError,
+    IssuerValidationError,
     MissingRequiredArgumentError,
     MissingTransactionError,
 )
@@ -34,6 +35,8 @@ def auth0_exception_handler(request: Request, exc: Auth0Error):
         status_code = 404  # Not Found
     elif isinstance(exc, MissingRequiredArgumentError):
         status_code = 422  # Unprocessable Entity
+    elif isinstance(exc, IssuerValidationError):
+        status_code = 401  # Unauthorized - token issuer mismatch
     elif isinstance(exc, ApiError):
         status_code = 502  # Bad Gateway, indicates an upstream error
     elif isinstance(exc, AccessTokenError):

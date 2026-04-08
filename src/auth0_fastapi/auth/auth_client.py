@@ -43,20 +43,25 @@ class AuthClient:
             transaction_store = CookieTransactionStore(
                 config.secret, cookie_name="_a0_tx")
 
+        # When domain is callable (MCD), don't hardcode redirect_uri in authorization_params
+        # It will be set dynamically per-request based on the incoming host
+        auth_params = {
+            "audience": config.audience,
+            **(config.authorization_params or {}),
+        }
+        if not callable(config.domain):
+            auth_params["redirect_uri"] = redirect_uri
+
         self.client = ServerClient(
-            domain=config.domain,
+            domain=config.domain,  # Can be str or callable
             client_id=config.client_id,
             client_secret=config.client_secret,
-            redirect_uri=redirect_uri,
+            redirect_uri=redirect_uri,  # Default fallback
             secret=config.secret,
             transaction_store=transaction_store,
             state_store=state_store,
             pushed_authorization_requests=config.pushed_authorization_requests,
-            authorization_params={
-                "audience": config.audience,
-                "redirect_uri": redirect_uri,
-                **(config.authorization_params or {}),
-            },
+            authorization_params=auth_params,
         )
 
     async def start_login(
@@ -136,11 +141,12 @@ class AuthClient:
     async def handle_backchannel_logout(
         self,
         logout_token: str,
+        store_options: dict = None,
     ) -> None:
         """
         Processes a backchannel logout using the provided logout token.
         """
-        return await self.client.handle_backchannel_logout(logout_token)
+        return await self.client.handle_backchannel_logout(logout_token, store_options=store_options)
 
     async def start_link_user(
         self,

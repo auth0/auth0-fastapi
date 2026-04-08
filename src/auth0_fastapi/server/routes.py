@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 from ..auth.auth_client import AuthClient
 from ..config import Auth0Config
 from ..errors import ConfigurationError
-from ..util import create_route_url, to_safe_redirect
+from ..util import build_request_base_url, create_route_url, to_safe_redirect
 
 router = APIRouter()
 
@@ -45,15 +45,24 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             Endpoint to initiate the login process.
             Optionally accepts a 'return_to' query parameter and passes it as part of the app state.
             Redirects the user to the Auth0 authorization URL.
+
+            When domain is a callable (MCD), the redirect_uri is built dynamically
+            from the request host to ensure proper domain handling.
             """
 
             return_to: Optional[str] = request.query_params.get("returnTo")
             authorization_params = {k: v for k, v in request.query_params.items() if k not in [
                 "returnTo"]}
+
+            # Build dynamic redirect_uri from request host when domain is callable
+            if callable(auth_client.config.domain):
+                base_url = build_request_base_url(request)
+                authorization_params["redirect_uri"] = f"{base_url}/auth/callback"
+
             auth_url = await auth_client.start_login(
                 app_state={"returnTo": return_to} if return_to else None,
                 authorization_params=authorization_params,
-                store_options={"response": response},
+                store_options={"request": request, "response": response},
             )
 
             return RedirectResponse(url=auth_url, headers=response.headers)
@@ -90,8 +99,12 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             # Extract the returnTo URL from the appState if available.
             return_to = app_state.get("returnTo")
 
-            # Assuming config is stored on app.state
-            default_redirect = auth_client.config.app_base_url
+            # Build dynamic default_redirect from request host if domain is callable
+            if callable(auth_client.config.domain):
+                default_redirect = build_request_base_url(request)
+            else:
+                # Assuming config is stored on app.state
+                default_redirect = auth_client.config.app_base_url
 
             safe_redirect = to_safe_redirect(return_to, default_redirect) if return_to else str(default_redirect)
             return RedirectResponse(url=safe_redirect, headers=response.headers)
@@ -106,13 +119,20 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             Endpoint to handle logout.
             Clears the session cookie (if applicable) and generates a logout URL,
             then redirects the user to Auth0's logout endpoint.
+
+            For MCD, builds dynamic returnTo URL based on incoming request host.
             """
             return_to: Optional[str] = request.query_params.get("returnTo")
             try:
-                default_redirect = str(auth_client.config.app_base_url)
+                # Build dynamic default_redirect from request host if domain is callable
+                if callable(auth_client.config.domain):
+                    default_redirect = build_request_base_url(request)
+                else:
+                    default_redirect = str(auth_client.config.app_base_url)
+
                 logout_url = await auth_client.logout(
                     return_to=return_to or default_redirect,
-                    store_options={"response": response},
+                    store_options={"request": request, "response": response},  # Pass request for MCD
                 )
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
@@ -136,7 +156,10 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
                     status_code=400, detail="Missing 'logout_token' in request body.")
 
             try:
-                await auth_client.handle_backchannel_logout(logout_token)
+                await auth_client.handle_backchannel_logout(
+                    logout_token,
+                    store_options={"request": request},
+                )
             except Exception as e:
                 raise HTTPException(status_code=400, detail=str(e))
             return Response(status_code=204)

@@ -540,3 +540,282 @@ class TestRouteRegistrationSecurity:
         else:
             # Connect routes should not be mounted
             pass
+
+
+class TestMCDSupport:
+    """
+    Test Multiple Custom Domains (MCD) support.
+
+    MCD allows a single application to serve multiple tenants, each with their own
+    Auth0 domain. This requires dynamic redirect_uri construction based on the
+    incoming request host.
+    """
+
+    # =========================================================================
+    # build_request_base_url() utility tests
+    # =========================================================================
+
+    def test_build_url_from_host_header(self):
+        """Test building URL from standard host header."""
+        from auth0_fastapi.util import build_request_base_url
+
+        request = Mock()
+        request.headers = {"host": "example.com"}
+
+        result = build_request_base_url(request)
+        assert result == "http://example.com"
+
+    def test_build_url_from_x_forwarded_host(self):
+        """Test building URL from x-forwarded-host (proxy scenario)."""
+        from auth0_fastapi.util import build_request_base_url
+
+        request = Mock()
+        request.headers = {
+            "host": "localhost:8000",
+            "x-forwarded-host": "app.example.com",
+            "x-forwarded-proto": "https"
+        }
+
+        result = build_request_base_url(request)
+        assert result == "https://app.example.com"
+
+    def test_build_url_removes_standard_https_port(self):
+        """Test that standard HTTPS port (443) is removed."""
+        from auth0_fastapi.util import build_request_base_url
+
+        request = Mock()
+        request.headers = {
+            "host": "example.com:443",
+            "x-forwarded-proto": "https"
+        }
+
+        result = build_request_base_url(request)
+        assert result == "https://example.com"
+
+    def test_build_url_removes_standard_http_port(self):
+        """Test that standard HTTP port (80) is removed."""
+        from auth0_fastapi.util import build_request_base_url
+
+        request = Mock()
+        request.headers = {
+            "host": "example.com:80"
+        }
+
+        result = build_request_base_url(request)
+        assert result == "http://example.com"
+
+    def test_build_url_preserves_non_standard_port(self):
+        """Test that non-standard ports are preserved."""
+        from auth0_fastapi.util import build_request_base_url
+
+        request = Mock()
+        request.headers = {
+            "host": "example.com:8080",
+            "x-forwarded-proto": "https"
+        }
+
+        result = build_request_base_url(request)
+        assert result == "https://example.com:8080"
+
+    def test_build_url_defaults_to_localhost(self):
+        """Test fallback to localhost when no host header."""
+        from auth0_fastapi.util import build_request_base_url
+
+        request = Mock()
+        request.headers = {}
+
+        result = build_request_base_url(request)
+        assert result == "http://localhost"
+
+    def test_build_url_x_forwarded_proto_precedence(self):
+        """Test that x-forwarded-proto takes precedence."""
+        from auth0_fastapi.util import build_request_base_url
+
+        request = Mock()
+        request.headers = {
+            "host": "example.com",
+            "x-forwarded-proto": "https"
+        }
+
+        result = build_request_base_url(request)
+        assert result == "https://example.com"
+
+    def test_build_url_multiple_tenants(self):
+        """Test URL building for multiple tenant domains."""
+        from auth0_fastapi.util import build_request_base_url
+
+        # Tenant A
+        request_a = Mock()
+        request_a.headers = {
+            "x-forwarded-host": "tenant-a.myapp.com",
+            "x-forwarded-proto": "https"
+        }
+        result_a = build_request_base_url(request_a)
+        assert result_a == "https://tenant-a.myapp.com"
+
+        # Tenant B
+        request_b = Mock()
+        request_b.headers = {
+            "x-forwarded-host": "tenant-b.myapp.com",
+            "x-forwarded-proto": "https"
+        }
+        result_b = build_request_base_url(request_b)
+        assert result_b == "https://tenant-b.myapp.com"
+
+        # Verify they're different
+        assert result_a != result_b
+
+    def test_build_url_non_standard_port_not_corrupted_http(self):
+        """Test that non-standard ports starting with 80 are not corrupted."""
+        from auth0_fastapi.util import build_request_base_url
+
+        request = Mock()
+        request.headers = {
+            "host": "example.com:8080",
+        }
+
+        result = build_request_base_url(request)
+        assert result == "http://example.com:8080"
+
+    def test_build_url_non_standard_port_not_corrupted_https(self):
+        """Test that non-standard ports starting with 443 are not corrupted."""
+        from auth0_fastapi.util import build_request_base_url
+
+        request = Mock()
+        request.headers = {
+            "host": "example.com:4430",
+            "x-forwarded-proto": "https"
+        }
+
+        result = build_request_base_url(request)
+        assert result == "https://example.com:4430"
+
+    # =========================================================================
+    # Login route MCD tests
+    # =========================================================================
+
+    @pytest.mark.asyncio
+    async def test_login_callable_domain_builds_dynamic_redirect_uri(self):
+        """Test that login route builds dynamic redirect_uri when domain is callable."""
+        from auth0_fastapi.util import build_request_base_url
+
+        mock_request = Mock()
+        mock_request.headers = {
+            "host": "tenant-a.myapp.com",
+            "x-forwarded-proto": "https"
+        }
+        mock_request.query_params = {}
+
+        async def domain_resolver(context):
+            return "tenant-a.auth0.com"
+
+        mock_auth_client = Mock(spec=AuthClient)
+        mock_auth_client.config = Mock()
+        mock_auth_client.config.domain = domain_resolver
+        mock_auth_client.start_login = AsyncMock(return_value="https://tenant-a.auth0.com/authorize")
+        mock_request.app.state.auth_client = mock_auth_client
+
+        base_url = build_request_base_url(mock_request)
+        assert base_url == "https://tenant-a.myapp.com"
+
+        expected_redirect_uri = f"{base_url}/auth/callback"
+        assert expected_redirect_uri == "https://tenant-a.myapp.com/auth/callback"
+
+    @pytest.mark.asyncio
+    async def test_login_static_domain_uses_app_base_url(self):
+        """Test that login route uses app_base_url when domain is static string."""
+        mock_auth_client = Mock(spec=AuthClient)
+        mock_auth_client.config = Mock()
+        mock_auth_client.config.domain = "tenant.auth0.com"
+        mock_auth_client.config.app_base_url = "https://example.com"
+
+        expected_redirect_uri = f"{mock_auth_client.config.app_base_url}/auth/callback"
+        assert expected_redirect_uri == "https://example.com/auth/callback"
+        assert not callable(mock_auth_client.config.domain)
+
+    @pytest.mark.asyncio
+    async def test_login_different_tenants_get_different_redirect_uris(self):
+        """Test that different tenant hosts get different redirect_uris."""
+        from auth0_fastapi.util import build_request_base_url
+
+        # Tenant A
+        request_a = Mock()
+        request_a.headers = {"host": "tenant-a.myapp.com", "x-forwarded-proto": "https"}
+        redirect_a = f"{build_request_base_url(request_a)}/auth/callback"
+
+        # Tenant B
+        request_b = Mock()
+        request_b.headers = {"host": "tenant-b.myapp.com", "x-forwarded-proto": "https"}
+        redirect_b = f"{build_request_base_url(request_b)}/auth/callback"
+
+        assert redirect_a == "https://tenant-a.myapp.com/auth/callback"
+        assert redirect_b == "https://tenant-b.myapp.com/auth/callback"
+        assert redirect_a != redirect_b
+
+    # =========================================================================
+    # Callback route MCD tests
+    # =========================================================================
+
+    @pytest.mark.asyncio
+    async def test_callback_works_with_callable_domain(self, mock_auth_client):
+        """Test that callback route works correctly with callable domain."""
+        mock_request = Mock()
+        mock_request.url = "https://tenant-a.myapp.com/auth/callback?code=test_code&state=test_state"
+        mock_request.headers = {"host": "tenant-a.myapp.com", "x-forwarded-proto": "https"}
+        mock_request.app.state.auth_client = mock_auth_client
+
+        async def domain_resolver(context):
+            return "tenant-a.auth0.com"
+
+        mock_auth_client.config.domain = domain_resolver
+        mock_auth_client.complete_login = AsyncMock(return_value={
+            "user": {"sub": "user123"},
+            "app_state": None
+        })
+
+        assert callable(mock_auth_client.config.domain)
+        result = await mock_auth_client.complete_login(str(mock_request.url))
+        assert result["user"]["sub"] == "user123"
+
+    # =========================================================================
+    # Logout route MCD tests
+    # =========================================================================
+
+    @pytest.mark.asyncio
+    async def test_logout_works_with_callable_domain(self, mock_auth_client):
+        """Test that logout route works correctly with callable domain."""
+        mock_request = Mock()
+        mock_request.headers = {"host": "tenant-a.myapp.com", "x-forwarded-proto": "https"}
+        mock_request.app.state.auth_client = mock_auth_client
+
+        async def domain_resolver(context):
+            return "tenant-a.auth0.com"
+
+        mock_auth_client.config.domain = domain_resolver
+        mock_auth_client.logout = AsyncMock(return_value="https://tenant-a.auth0.com/v2/logout")
+
+        assert callable(mock_auth_client.config.domain)
+        result = await mock_auth_client.logout(return_to="/")
+        assert "logout" in result
+
+    # =========================================================================
+    # Dependency injection MCD tests
+    # =========================================================================
+
+    def test_get_auth_client_works_with_callable_domain(self):
+        """Test that get_auth_client dependency works with callable domain."""
+        from auth0_fastapi.server.routes import get_auth_client
+
+        async def domain_resolver(context):
+            return "tenant.auth0.com"
+
+        mock_request = Mock()
+        mock_auth_client = Mock(spec=AuthClient)
+        mock_auth_client.config = Mock()
+        mock_auth_client.config.domain = domain_resolver
+        mock_request.app.state.auth_client = mock_auth_client
+
+        result = get_auth_client(mock_request)
+
+        assert result is mock_auth_client
+        assert callable(result.config.domain)
