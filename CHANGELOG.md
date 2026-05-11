@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.0.0b8](https://github.com/auth0/auth0-fastapi/tree/1.0.0b8) (2026-05-11)
+[Full Changelog](https://github.com/auth0/auth0-fastapi/compare/1.0.0b7...1.0.0b8)
+
+**Changed**
+- Updated poetry.lock for  auth0-server-python, authlib and other dependencies [\#127](https://github.com/auth0/auth0-fastapi/pull/127) ([rmad17](https://github.com/rmad17))
+
 ## [1.0.0b7](https://github.com/auth0/auth0-fastapi/tree/1.0.0b7) (2026-04-08)
 [Full Changelog](https://github.com/auth0/auth0-fastapi/compare/1.0.0b6...1.0.0b7)
 
