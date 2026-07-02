@@ -5,6 +5,8 @@ from auth0_server_python.error import (
     ApiError,
     Auth0Error,
     BackchannelLogoutError,
+    CustomTokenExchangeError,
+    CustomTokenExchangeErrorCode,
     IssuerValidationError,
     MissingRequiredArgumentError,
     MissingTransactionError,

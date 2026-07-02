@@ -6,8 +6,12 @@ from auth0_server_python.auth_server.server_client import ServerClient
 from auth0_server_python.auth_types import (
     CompleteConnectAccountResponse,
     ConnectAccountOptions,
+    CustomTokenExchangeOptions,
+    LoginWithCustomTokenExchangeOptions,
+    LoginWithCustomTokenExchangeResult,
     LogoutOptions,
     StartInteractiveLoginOptions,
+    TokenExchangeResponse,
 )
 from fastapi import HTTPException, Request, Response, status
 
@@ -93,6 +97,30 @@ class AuthClient:
         Returns a dictionary with the session state data.
         """
         return await self.client.complete_interactive_login(callback_url, store_options=store_options)
+
+    async def custom_token_exchange(
+        self,
+        options: CustomTokenExchangeOptions,
+        store_options: dict = None,
+    ) -> TokenExchangeResponse:
+        """
+        Performs an RFC 8693 token exchange for the given subject token.
+        Does not create or modify the current session.
+        Returns the raw TokenExchangeResponse.
+        """
+        return await self.client.custom_token_exchange(options, store_options=store_options)
+
+    async def login_with_custom_token_exchange(
+        self,
+        options: LoginWithCustomTokenExchangeOptions,
+        store_options: dict = None,
+    ) -> LoginWithCustomTokenExchangeResult:
+        """
+        Performs an RFC 8693 token exchange for the given subject token and
+        establishes a session for the resulting user.
+        Returns the LoginWithCustomTokenExchangeResult containing the session state.
+        """
+        return await self.client.login_with_custom_token_exchange(options, store_options=store_options)
 
     async def start_connect_account(
         self,

@@ -27,6 +27,7 @@
 
 - **Fully Integrated Auth Flows**: Automatic routes for `/auth/login`, `/auth/logout`, `/auth/callback`, etc.
 - **Session-Based**: Uses secure cookies to store user sessions, either stateless (all data in cookie) or stateful (data in a database).
+- **Custom Token Exchange**: Exchange tokens from external identity providers or legacy systems for Auth0 tokens, with or without establishing a session.
 - **Multiple Custom Domains (MCD)**: Support for applications using multiple custom domains on the same Auth0 tenant.
 - **Account Linking**: Optional routes for linking multiple social or username/password accounts into a single Auth0 profile.
 - **Backchannel Logout**: Receive logout tokens from Auth0 to invalidate sessions server-side.
@@ -268,6 +269,51 @@ config = Auth0Config(
 ```
 
 The `AUTH0_AUDIENCE` is the identifier of the API you want to call. You can find this in the [APIs section of the Auth0 Dashboard](https://manage.auth0.com/#/apis/).
+
+### Custom Token Exchange
+
+If you're migrating from a legacy authentication system or integrating with a custom identity provider, you can exchange external tokens for Auth0 tokens using [RFC 8693](https://datatracker.ietf.org/doc/html/rfc8693) Token Exchange, without a browser redirect:
+
+```python
+from fastapi import Request, Response
+from auth0_server_python.auth_types import LoginWithCustomTokenExchangeOptions
+
+@app.post("/auth/token-exchange")
+async def token_exchange_login(request: Request, response: Response):
+    result = await auth_client.login_with_custom_token_exchange(
+        LoginWithCustomTokenExchangeOptions(
+            subject_token="token-from-external-idp",
+            subject_token_type="urn:acme:legacy-session-token",
+        ),
+        store_options={"request": request, "response": response},
+    )
+
+    # The user is now logged in; the session cookie is set on `response`.
+    return {"user": result.state_data["user"]}
+```
+
+> [!IMPORTANT]
+> `store_options={"request": request, "response": response}` is required for `login_with_custom_token_exchange()` — `response` is where the session cookie gets written. Omitting it raises a `ValueError`.
+
+For advanced token exchange scenarios (e.g. calling a downstream API without affecting the caller's own session), use `custom_token_exchange()` directly. Unlike the login variant above, `store_options` is optional here since no cookie is read or written — it's only needed if you've configured [Multiple Custom Domains](#multiple-custom-domains-mcd):
+
+```python
+from auth0_server_python.auth_types import CustomTokenExchangeOptions
+
+@app.post("/api/exchange")
+async def exchange_token():
+    result = await auth_client.custom_token_exchange(
+        CustomTokenExchangeOptions(
+            subject_token="token-from-external-system",
+            subject_token_type="urn:acme:legacy-session-token",
+            audience="https://downstream-api.example.com",
+        )
+    )
+
+    return {"access_token": result.access_token}
+```
+
+For actor tokens (delegation), error handling, and token type URI guidance, see [examples/CustomTokenExchange.md](./examples/CustomTokenExchange.md).
 
 ### Multiple Custom Domains (MCD)
 
