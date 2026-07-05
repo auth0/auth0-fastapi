@@ -155,6 +155,7 @@ register_exception_handlers(app)
 Or handle it inline if a route needs custom behavior:
 
 ```python
+from fastapi import HTTPException
 from auth0_fastapi.errors import CustomTokenExchangeError, CustomTokenExchangeErrorCode
 
 @router.post("/api/exchange")
