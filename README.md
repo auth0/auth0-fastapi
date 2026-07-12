@@ -31,6 +31,7 @@
 - **Multiple Custom Domains (MCD)**: Support for applications using multiple custom domains on the same Auth0 tenant.
 - **Account Linking**: Optional routes for linking multiple social or username/password accounts into a single Auth0 profile.
 - **Backchannel Logout**: Receive logout tokens from Auth0 to invalidate sessions server-side.
+- **Upstream Session Expiry (IPSIE)**: Honors the `session_expiry` claim from enterprise connections as a hard ceiling on the local session.
 - **Extensible**: Swap in your own store implementations or tune existing ones (cookie name, expiration, etc.)
 
 ### 2. Installation
@@ -346,6 +347,12 @@ When using MCD, the SDK automatically:
 - Handles legacy sessions (created before MCD) via a fallback chain
 
 For detailed usage patterns, see [examples/MultipleCustomDomains.md](./examples/MultipleCustomDomains.md).
+
+### Session expiry from upstream IdP
+
+When an enterprise connection has "Use ID Token for Session Expiry" enabled, Auth0 emits a `session_expiry` claim that the SDK enforces as a hard ceiling on the local session - once it passes, the session behaves like "no session" (`get_session()` / `get_user()` return `None`), so `require_session` and your existing redirect-to-login path handle re-authentication transparently. This requires no application code change.
+
+For detailed behavior and how to read the value, see [examples/Sessions.md](./examples/Sessions.md).
 
 ## Feedback
 

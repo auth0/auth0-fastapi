@@ -1,5 +1,14 @@
 # Change Log
 
+## [1.0.0b8](https://github.com/auth0/auth0-fastapi/tree/1.0.0b8) (2026-07-08)
+[Full Changelog](https://github.com/auth0/auth0-fastapi/compare/1.0.0b7...1.0.0b8)
+
+**Added**
+- feat: support upstream IdP session_expiry ceiling (IPSIE SL1) [\#139](https://github.com/auth0/auth0-fastapi/pull/139) ([kishore7snehil](https://github.com/kishore7snehil))
+
+**Changed**
+- Updated auth0_server_python version [\#127](https://github.com/auth0/auth0-fastapi/pull/127) ([rmad17](https://github.com/rmad17))
+
 ## [1.0.0b7](https://github.com/auth0/auth0-fastapi/tree/1.0.0b7) (2026-04-08)
 [Full Changelog](https://github.com/auth0/auth0-fastapi/compare/1.0.0b6...1.0.0b7)
 
