@@ -106,7 +106,22 @@ class AuthClient:
         """
         Performs an RFC 8693 token exchange for the given subject token.
         Does not create or modify the current session.
-        Returns the raw TokenExchangeResponse.
+
+        Args:
+            options: Subject/actor token details and exchange parameters
+                (subject_token, subject_token_type, audience, scope, actor_token,
+                actor_token_type, organization, authorization_params).
+            store_options: Optional options passed to the Transaction and State
+                Store. Only required when using Multiple Custom Domains, where
+                the domain resolver needs the incoming request.
+
+        Returns:
+            The raw TokenExchangeResponse (access_token, expires_in, and, when
+            an actor_token was supplied, the decoded act claim).
+
+        Raises:
+            CustomTokenExchangeError: If the exchange fails or the subject/actor
+                token parameters are invalid (see CustomTokenExchangeErrorCode).
         """
         return await self.client.custom_token_exchange(options, store_options=store_options)
 
@@ -118,7 +133,24 @@ class AuthClient:
         """
         Performs an RFC 8693 token exchange for the given subject token and
         establishes a session for the resulting user.
-        Returns the LoginWithCustomTokenExchangeResult containing the session state.
+
+        Args:
+            options: Subject/actor token details and exchange parameters
+                (subject_token, subject_token_type, audience, scope, actor_token,
+                actor_token_type, organization, authorization_params).
+            store_options: Options passed to the Transaction and State Store.
+                Must include {"request": request, "response": response} so the
+                session cookie can be written on response.
+
+        Returns:
+            The LoginWithCustomTokenExchangeResult containing the session state
+            (including the resulting user).
+
+        Raises:
+            CustomTokenExchangeError: If the exchange fails or the subject/actor
+                token parameters are invalid (see CustomTokenExchangeErrorCode).
+            ValueError: If store_options is missing the response needed to
+                write the session cookie.
         """
         return await self.client.login_with_custom_token_exchange(options, store_options=store_options)
 
