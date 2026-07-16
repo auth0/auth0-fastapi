@@ -142,6 +142,19 @@ if user.get("act"):
 
 > **NOTE**: When an `actor_token` is present, Auth0 does not issue a refresh token (`offline_access` is dropped). The acting party is fixed at exchange time and is not re-emitted on a later token refresh.
 
+Specify an organization when exchanging tokens:
+
+```python
+result = await auth_client.custom_token_exchange(
+    CustomTokenExchangeOptions(
+        subject_token="token-from-external-system",
+        subject_token_type="urn:acme:legacy-session-token",
+        audience="https://downstream-api.example.com",
+        organization="org_abc1234",
+    )
+)
+```
+
 ## 4. Error Handling
 
 Register the SDK's exception handler once, and `CustomTokenExchangeError` will be mapped to an HTTP `400` JSON response automatically:
@@ -182,22 +195,7 @@ See the [auth0-server-python Custom Token Exchange doc](https://github.com/auth0
 
 `INVALID_TOKEN_FORMAT` is raised client-side before any network call for an empty or whitespace-only `subject_token`/`actor_token`, or one with a `"Bearer "` prefix. Other malformed-but-nonempty values (including a `subject_token_type` that isn't a valid URI) are not checked client-side and are sent to Auth0, which rejects them.
 
-## 5. Organization Support
-
-Specify an organization when exchanging tokens:
-
-```python
-result = await auth_client.custom_token_exchange(
-    CustomTokenExchangeOptions(
-        subject_token="token-from-external-system",
-        subject_token_type="urn:acme:legacy-session-token",
-        audience="https://downstream-api.example.com",
-        organization="org_abc1234",
-    )
-)
-```
-
-## 6. Token Type URIs
+## 5. Token Type URIs
 
 Use standard URNs when the subject token type is covered by RFC 8693; otherwise use your own namespace:
 
