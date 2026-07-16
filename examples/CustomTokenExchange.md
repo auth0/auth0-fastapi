@@ -140,8 +140,6 @@ if user.get("act"):
     print(f"Acting party: {user['act']['sub']}")
 ```
 
-> **NOTE**: When an `actor_token` is present, Auth0 does not issue a refresh token (`offline_access` is dropped). The acting party is fixed at exchange time and is not re-emitted on a later token refresh.
-
 Specify an organization when exchanging tokens:
 
 ```python
@@ -154,6 +152,8 @@ result = await auth_client.custom_token_exchange(
     )
 )
 ```
+> **NOTE**: When an `actor_token` is present, Auth0 does not issue a refresh token (`offline_access` is dropped). The acting party is fixed at exchange time and is not re-emitted on a later token refresh.
+
 
 ## 4. Error Handling
 
