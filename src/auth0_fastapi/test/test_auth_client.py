@@ -264,151 +264,6 @@ class TestLogoutFlow:
                 await auth_client.handle_backchannel_logout(invalid_token)
 
 
-class TestCustomTokenExchange:
-    """Test Custom Token Exchange (RFC 8693) security and functionality."""
-
-    @pytest.mark.asyncio
-    async def test_custom_token_exchange_success(self, auth_client, mock_request, mock_response):
-        """Test that custom_token_exchange delegates to the underlying client and returns its result."""
-        options = CustomTokenExchangeOptions(
-            subject_token="external-token",
-            subject_token_type="urn:acme:legacy-session-token",
-        )
-        mock_result = TokenExchangeResponse(
-            access_token="new_access_token",
-            token_type="Bearer",
-            expires_in=3600,
-        )
-
-        with patch.object(auth_client.client, 'custom_token_exchange', new_callable=AsyncMock) as mock_exchange:
-            mock_exchange.return_value = mock_result
-
-            result = await auth_client.custom_token_exchange(
-                options,
-                store_options={"request": mock_request, "response": mock_response},
-            )
-
-            assert result == mock_result
-            mock_exchange.assert_called_once_with(
-                options,
-                store_options={"request": mock_request, "response": mock_response},
-            )
-
-    @pytest.mark.asyncio
-    async def test_custom_token_exchange_does_not_touch_session(self, auth_client):
-        """Test that custom_token_exchange never calls get_session or writes to the state store."""
-        options = CustomTokenExchangeOptions(
-            subject_token="external-token",
-            subject_token_type="urn:acme:legacy-session-token",
-        )
-
-        with patch.object(auth_client.client, 'custom_token_exchange', new_callable=AsyncMock) as mock_exchange, \
-             patch.object(auth_client.client, 'get_session', new_callable=AsyncMock) as mock_get_session:
-            mock_exchange.return_value = TokenExchangeResponse(
-                access_token="token", token_type="Bearer", expires_in=3600
-            )
-
-            await auth_client.custom_token_exchange(options)
-
-            mock_get_session.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_custom_token_exchange_with_actor_token(self, auth_client):
-        """Test delegation/impersonation via actor_token and actor_token_type."""
-        options = CustomTokenExchangeOptions(
-            subject_token="external-token",
-            subject_token_type="urn:acme:legacy-session-token",
-            actor_token="actor-token",
-            actor_token_type="urn:acme:actor-token",
-        )
-        mock_result = TokenExchangeResponse(
-            access_token="new_access_token",
-            token_type="Bearer",
-            expires_in=3600,
-            act={"sub": "actor-subject"},
-        )
-
-        with patch.object(auth_client.client, 'custom_token_exchange', new_callable=AsyncMock) as mock_exchange:
-            mock_exchange.return_value = mock_result
-
-            result = await auth_client.custom_token_exchange(options)
-
-            assert result.act == {"sub": "actor-subject"}
-            call_args = mock_exchange.call_args[0][0]
-            assert call_args.actor_token == "actor-token"
-            assert call_args.actor_token_type == "urn:acme:actor-token"
-
-    @pytest.mark.asyncio
-    async def test_custom_token_exchange_error_propagates(self, auth_client):
-        """Test that CustomTokenExchangeError from the underlying client is not swallowed or wrapped."""
-        options = CustomTokenExchangeOptions(
-            subject_token="external-token",
-            subject_token_type="urn:acme:legacy-session-token",
-        )
-
-        with patch.object(auth_client.client, 'custom_token_exchange', new_callable=AsyncMock) as mock_exchange:
-            mock_exchange.side_effect = CustomTokenExchangeError(
-                CustomTokenExchangeErrorCode.INVALID_TOKEN_FORMAT,
-                "subject_token_type must be a valid URI",
-            )
-
-            with pytest.raises(CustomTokenExchangeError):
-                await auth_client.custom_token_exchange(options)
-
-    @pytest.mark.asyncio
-    async def test_login_with_custom_token_exchange_success(self, auth_client, mock_request, mock_response):
-        """Test that login_with_custom_token_exchange delegates to the underlying client and returns its result."""
-        options = LoginWithCustomTokenExchangeOptions(
-            subject_token="external-token",
-            subject_token_type="urn:acme:corporate-idp-token",
-        )
-        mock_result = LoginWithCustomTokenExchangeResult(
-            state_data={"user": {"sub": "test_user"}},
-        )
-
-        with patch.object(
-            auth_client.client, 'login_with_custom_token_exchange', new_callable=AsyncMock
-        ) as mock_login_exchange:
-            mock_login_exchange.return_value = mock_result
-
-            result = await auth_client.login_with_custom_token_exchange(
-                options,
-                store_options={"request": mock_request, "response": mock_response},
-            )
-
-            assert result == mock_result
-            mock_login_exchange.assert_called_once_with(
-                options,
-                store_options={"request": mock_request, "response": mock_response},
-            )
-
-    @pytest.mark.asyncio
-    async def test_login_with_custom_token_exchange_passes_store_options_for_session_write(
-        self, auth_client, mock_request, mock_response
-    ):
-        """Test that request and response are forwarded so the state store can write the session cookie."""
-        options = LoginWithCustomTokenExchangeOptions(
-            subject_token="external-token",
-            subject_token_type="urn:acme:corporate-idp-token",
-        )
-
-        with patch.object(
-            auth_client.client, 'login_with_custom_token_exchange', new_callable=AsyncMock
-        ) as mock_login_exchange:
-            mock_login_exchange.return_value = LoginWithCustomTokenExchangeResult(
-                state_data={"user": {"sub": "test_user"}}
-            )
-
-            await auth_client.login_with_custom_token_exchange(
-                options,
-                store_options={"request": mock_request, "response": mock_response},
-            )
-
-            call_kwargs = mock_login_exchange.call_args.kwargs
-            assert call_kwargs['store_options']['request'] is mock_request
-            assert call_kwargs['store_options']['response'] is mock_response
-
-
 class TestAccountLinking:
     """Test account linking/unlinking security and functionality."""
 
@@ -772,3 +627,189 @@ class TestAuthClientMultipleCustomDomains:
         # Verify other config properties are accessible
         assert client.config.client_id == "test_client_id"
         assert str(client.config.app_base_url) == "https://example.com/"  # Pydantic normalizes with trailing slash
+
+
+class TestCustomTokenExchange:
+    """Test Custom Token Exchange (RFC 8693) security and functionality."""
+
+    @pytest.mark.asyncio
+    async def test_custom_token_exchange_success(self, auth_client, mock_request, mock_response):
+        """Test that custom_token_exchange delegates to the underlying client and returns its result."""
+        options = CustomTokenExchangeOptions(
+            subject_token="external-token",
+            subject_token_type="urn:acme:legacy-session-token",
+        )
+        mock_result = TokenExchangeResponse(
+            access_token="new_access_token",
+            token_type="Bearer",
+            expires_in=3600,
+        )
+
+        with patch.object(auth_client.client, 'custom_token_exchange', new_callable=AsyncMock) as mock_exchange:
+            mock_exchange.return_value = mock_result
+
+            result = await auth_client.custom_token_exchange(
+                options,
+                store_options={"request": mock_request, "response": mock_response},
+            )
+
+            assert result == mock_result
+            mock_exchange.assert_called_once_with(
+                options,
+                store_options={"request": mock_request, "response": mock_response},
+            )
+
+    @pytest.mark.asyncio
+    async def test_custom_token_exchange_does_not_touch_session(self, auth_client):
+        """Test that custom_token_exchange never calls get_session or writes to the state store."""
+        options = CustomTokenExchangeOptions(
+            subject_token="external-token",
+            subject_token_type="urn:acme:legacy-session-token",
+        )
+
+        with patch.object(auth_client.client, 'custom_token_exchange', new_callable=AsyncMock) as mock_exchange, \
+             patch.object(auth_client.client, 'get_session', new_callable=AsyncMock) as mock_get_session:
+            mock_exchange.return_value = TokenExchangeResponse(
+                access_token="token", token_type="Bearer", expires_in=3600
+            )
+
+            await auth_client.custom_token_exchange(options)
+
+            mock_get_session.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_custom_token_exchange_with_actor_token(self, auth_client):
+        """Test delegation/impersonation via actor_token and actor_token_type."""
+        options = CustomTokenExchangeOptions(
+            subject_token="external-token",
+            subject_token_type="urn:acme:legacy-session-token",
+            actor_token="actor-token",
+            actor_token_type="urn:acme:actor-token",
+        )
+        mock_result = TokenExchangeResponse(
+            access_token="new_access_token",
+            token_type="Bearer",
+            expires_in=3600,
+            act={"sub": "actor-subject"},
+        )
+
+        with patch.object(auth_client.client, 'custom_token_exchange', new_callable=AsyncMock) as mock_exchange:
+            mock_exchange.return_value = mock_result
+
+            result = await auth_client.custom_token_exchange(options)
+
+            assert result.act == {"sub": "actor-subject"}
+            call_args = mock_exchange.call_args[0][0]
+            assert call_args.actor_token == "actor-token"
+            assert call_args.actor_token_type == "urn:acme:actor-token"
+
+    @pytest.mark.asyncio
+    async def test_custom_token_exchange_error_propagates(self, auth_client):
+        """Test that CustomTokenExchangeError from the underlying client is not swallowed or wrapped."""
+        options = CustomTokenExchangeOptions(
+            subject_token="external-token",
+            subject_token_type="urn:acme:legacy-session-token",
+        )
+
+        with patch.object(auth_client.client, 'custom_token_exchange', new_callable=AsyncMock) as mock_exchange:
+            mock_exchange.side_effect = CustomTokenExchangeError(
+                CustomTokenExchangeErrorCode.INVALID_TOKEN_FORMAT,
+                "subject_token cannot be empty or whitespace-only",
+            )
+
+            with pytest.raises(CustomTokenExchangeError):
+                await auth_client.custom_token_exchange(options)
+
+    @pytest.mark.asyncio
+    async def test_login_with_custom_token_exchange_success(self, auth_client, mock_request, mock_response):
+        """Test that login_with_custom_token_exchange delegates to the underlying client and returns its result."""
+        options = LoginWithCustomTokenExchangeOptions(
+            subject_token="external-token",
+            subject_token_type="urn:acme:corporate-idp-token",
+        )
+        mock_result = LoginWithCustomTokenExchangeResult(
+            state_data={"user": {"sub": "test_user"}},
+        )
+
+        with patch.object(
+            auth_client.client, 'login_with_custom_token_exchange', new_callable=AsyncMock
+        ) as mock_login_exchange:
+            mock_login_exchange.return_value = mock_result
+
+            result = await auth_client.login_with_custom_token_exchange(
+                options,
+                store_options={"request": mock_request, "response": mock_response},
+            )
+
+            assert result == mock_result
+            mock_login_exchange.assert_called_once_with(
+                options,
+                store_options={"request": mock_request, "response": mock_response},
+            )
+
+    @pytest.mark.asyncio
+    async def test_login_with_custom_token_exchange_passes_store_options_for_session_write(
+        self, auth_client, mock_request, mock_response
+    ):
+        """Test that request and response are forwarded so the state store can write the session cookie."""
+        options = LoginWithCustomTokenExchangeOptions(
+            subject_token="external-token",
+            subject_token_type="urn:acme:corporate-idp-token",
+        )
+
+        with patch.object(
+            auth_client.client, 'login_with_custom_token_exchange', new_callable=AsyncMock
+        ) as mock_login_exchange:
+            mock_login_exchange.return_value = LoginWithCustomTokenExchangeResult(
+                state_data={"user": {"sub": "test_user"}}
+            )
+
+            await auth_client.login_with_custom_token_exchange(
+                options,
+                store_options={"request": mock_request, "response": mock_response},
+            )
+
+            call_kwargs = mock_login_exchange.call_args.kwargs
+            assert call_kwargs['store_options']['request'] is mock_request
+            assert call_kwargs['store_options']['response'] is mock_response
+
+    @pytest.mark.asyncio
+    async def test_login_with_custom_token_exchange_forwards_actor_token(self, auth_client):
+        """Test that actor_token/actor_token_type are forwarded to the underlying client."""
+        options = LoginWithCustomTokenExchangeOptions(
+            subject_token="external-token",
+            subject_token_type="urn:acme:corporate-idp-token",
+            actor_token="actor-token",
+            actor_token_type="urn:acme:actor-token",
+        )
+
+        with patch.object(
+            auth_client.client, 'login_with_custom_token_exchange', new_callable=AsyncMock
+        ) as mock_login_exchange:
+            mock_login_exchange.return_value = LoginWithCustomTokenExchangeResult(
+                state_data={"user": {"sub": "test_user", "act": {"sub": "actor-subject"}}}
+            )
+
+            await auth_client.login_with_custom_token_exchange(options)
+
+            call_args = mock_login_exchange.call_args[0][0]
+            assert call_args.actor_token == "actor-token"
+            assert call_args.actor_token_type == "urn:acme:actor-token"
+
+    @pytest.mark.asyncio
+    async def test_login_with_custom_token_exchange_missing_response_raises_value_error(self, auth_client):
+        """Test that omitting response in store_options surfaces the ValueError from the state store."""
+        options = LoginWithCustomTokenExchangeOptions(
+            subject_token="external-token",
+            subject_token_type="urn:acme:corporate-idp-token",
+        )
+
+        with patch.object(
+            auth_client.client, 'login_with_custom_token_exchange', new_callable=AsyncMock
+        ) as mock_login_exchange:
+            mock_login_exchange.side_effect = ValueError(
+                "Response object is required in store options for stateless storage."
+            )
+
+            with pytest.raises(ValueError):
+                await auth_client.login_with_custom_token_exchange(options, store_options={})

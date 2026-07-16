@@ -98,62 +98,6 @@ class AuthClient:
         """
         return await self.client.complete_interactive_login(callback_url, store_options=store_options)
 
-    async def custom_token_exchange(
-        self,
-        options: CustomTokenExchangeOptions,
-        store_options: dict = None,
-    ) -> TokenExchangeResponse:
-        """
-        Performs an RFC 8693 token exchange for the given subject token.
-        Does not create or modify the current session.
-
-        Args:
-            options: Subject/actor token details and exchange parameters
-                (subject_token, subject_token_type, audience, scope, actor_token,
-                actor_token_type, organization, authorization_params).
-            store_options: Optional options passed to the Transaction and State
-                Store. Only required when using Multiple Custom Domains, where
-                the domain resolver needs the incoming request.
-
-        Returns:
-            The raw TokenExchangeResponse (access_token, expires_in, and, when
-            an actor_token was supplied, the decoded act claim).
-
-        Raises:
-            CustomTokenExchangeError: If the exchange fails or the subject/actor
-                token parameters are invalid (see CustomTokenExchangeErrorCode).
-        """
-        return await self.client.custom_token_exchange(options, store_options=store_options)
-
-    async def login_with_custom_token_exchange(
-        self,
-        options: LoginWithCustomTokenExchangeOptions,
-        store_options: dict = None,
-    ) -> LoginWithCustomTokenExchangeResult:
-        """
-        Performs an RFC 8693 token exchange for the given subject token and
-        establishes a session for the resulting user.
-
-        Args:
-            options: Subject/actor token details and exchange parameters
-                (subject_token, subject_token_type, audience, scope, actor_token,
-                actor_token_type, organization, authorization_params).
-            store_options: Options passed to the Transaction and State Store.
-                Must include {"request": request, "response": response} so the
-                session cookie can be written on response.
-
-        Returns:
-            The LoginWithCustomTokenExchangeResult containing the session state
-            (including the resulting user).
-
-        Raises:
-            CustomTokenExchangeError: If the exchange fails or the subject/actor
-                token parameters are invalid (see CustomTokenExchangeErrorCode).
-            ValueError: If store_options is missing the response needed to
-                write the session cookie.
-        """
-        return await self.client.login_with_custom_token_exchange(options, store_options=store_options)
-
     async def start_connect_account(
         self,
         connection: str,
@@ -279,3 +223,59 @@ class AuthClient:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Please log in")
         return session
+
+    async def custom_token_exchange(
+        self,
+        options: CustomTokenExchangeOptions,
+        store_options: dict = None,
+    ) -> TokenExchangeResponse:
+        """
+        Performs an RFC 8693 token exchange for the given subject token.
+        Does not create or modify the current session.
+
+        Args:
+            options: Subject/actor token details and exchange parameters
+                (subject_token, subject_token_type, audience, scope, actor_token,
+                actor_token_type, organization, authorization_params).
+            store_options: Optional options passed to the Transaction and State
+                Store. Only required when using Multiple Custom Domains, where
+                the domain resolver needs the incoming request.
+
+        Returns:
+            The raw TokenExchangeResponse (access_token, expires_in, and, when
+            an actor_token was supplied, the decoded act claim).
+
+        Raises:
+            CustomTokenExchangeError: If the exchange fails or the subject/actor
+                token parameters are invalid (see CustomTokenExchangeErrorCode).
+        """
+        return await self.client.custom_token_exchange(options, store_options=store_options)
+
+    async def login_with_custom_token_exchange(
+        self,
+        options: LoginWithCustomTokenExchangeOptions,
+        store_options: dict = None,
+    ) -> LoginWithCustomTokenExchangeResult:
+        """
+        Performs an RFC 8693 token exchange for the given subject token and
+        establishes a session for the resulting user.
+
+        Args:
+            options: Subject/actor token details and exchange parameters
+                (subject_token, subject_token_type, audience, scope, actor_token,
+                actor_token_type, organization, authorization_params).
+            store_options: Options passed to the Transaction and State Store.
+                Must include {"request": request, "response": response} so the
+                session cookie can be written on response.
+
+        Returns:
+            The LoginWithCustomTokenExchangeResult containing the session state
+            (including the resulting user).
+
+        Raises:
+            CustomTokenExchangeError: If the exchange fails or the subject/actor
+                token parameters are invalid (see CustomTokenExchangeErrorCode).
+            ValueError: If store_options is missing the response needed to
+                write the session cookie.
+        """
+        return await self.client.login_with_custom_token_exchange(options, store_options=store_options)

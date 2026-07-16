@@ -178,15 +178,26 @@ async def exchange_token(request: Request, response: Response):
 
 ### Common Error Codes
 
-- `INVALID_TOKEN_FORMAT`: token is empty, whitespace-only, or has a `"Bearer "` prefix
-- `MISSING_ACTOR_TOKEN_TYPE`: `actor_token` provided without `actor_token_type`
-- `MISSING_ACTOR_TOKEN`: `actor_token_type` provided without `actor_token`
-- `TOKEN_EXCHANGE_FAILED`: general token exchange failure (e.g., Auth0 returned an OAuth error)
-- `INVALID_RESPONSE`: Auth0 returned a non-JSON response
+See the [auth0-server-python Custom Token Exchange doc](https://github.com/auth0/auth0-server-python/blob/main/examples/CustomTokenExchange.md#common-error-codes) for the full, up-to-date list of `CustomTokenExchangeErrorCode` values and what triggers each one.
 
-`INVALID_TOKEN_FORMAT` is raised client-side before any network call — malformed tokens never reach Auth0.
+`INVALID_TOKEN_FORMAT` is raised client-side before any network call for an empty or whitespace-only `subject_token`/`actor_token`, or one with a `"Bearer "` prefix. Other malformed-but-nonempty values (including a `subject_token_type` that isn't a valid URI) are not checked client-side and are sent to Auth0, which rejects them.
 
-## 5. Token Type URIs
+## 5. Organization Support
+
+Specify an organization when exchanging tokens:
+
+```python
+result = await auth_client.custom_token_exchange(
+    CustomTokenExchangeOptions(
+        subject_token="token-from-external-system",
+        subject_token_type="urn:acme:legacy-session-token",
+        audience="https://downstream-api.example.com",
+        organization="org_abc1234",
+    )
+)
+```
+
+## 6. Token Type URIs
 
 Use standard URNs when the subject token type is covered by RFC 8693; otherwise use your own namespace:
 
@@ -202,7 +213,7 @@ Use standard URNs when the subject token type is covered by RFC 8693; otherwise 
 "urn:company:corporate-idp-token"
 ```
 
-> **NOTE**: Reserved namespaces (`urn:ietf`, `urn:auth0`, `urn:okta`, `http(s)://auth0.com`, `http(s)://okta.com`) cannot be used as a *custom* `subject_token_type` when configuring a token-exchange profile in the Auth0 Dashboard.
+> **NOTE**: See the [official Auth0 documentation](https://auth0.com/docs/authenticate/custom-token-exchange) for which namespaces are reserved and cannot be used as a *custom* `subject_token_type` when configuring a token-exchange profile in the Auth0 Dashboard.
 
 ## Additional Resources
 
