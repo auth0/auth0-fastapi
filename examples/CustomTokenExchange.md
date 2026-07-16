@@ -197,21 +197,9 @@ See the [auth0-server-python Custom Token Exchange doc](https://github.com/auth0
 
 ## 5. Token Type URIs
 
-Use standard URNs when the subject token type is covered by RFC 8693; otherwise use your own namespace:
+`subject_token_type` and `actor_token_type` accept any URI — a standard RFC 8693 URN (e.g. `urn:ietf:params:oauth:token-type:jwt`) or your own namespace (e.g. `urn:acme:legacy-session-token`).
 
-```python
-# Standard token types
-"urn:ietf:params:oauth:token-type:jwt"
-"urn:ietf:params:oauth:token-type:access_token"
-"urn:ietf:params:oauth:token-type:id_token"
-"urn:ietf:params:oauth:token-type:refresh_token"
-
-# Custom token types (your own namespace)
-"urn:acme:legacy-session-token"
-"urn:company:corporate-idp-token"
-```
-
-> **NOTE**: See the [official Auth0 documentation](https://auth0.com/docs/authenticate/custom-token-exchange) for which namespaces are reserved and cannot be used as a *custom* `subject_token_type` when configuring a token-exchange profile in the Auth0 Dashboard.
+See the [auth0-server-python Custom Token Exchange doc](https://github.com/auth0/auth0-server-python/blob/main/examples/CustomTokenExchange.md) for the full set of standard token-type URNs, and the [official Auth0 documentation](https://auth0.com/docs/authenticate/custom-token-exchange) for which namespaces are reserved and cannot be used as a *custom* `subject_token_type` when configuring a token-exchange profile in the Auth0 Dashboard.
 
 ## Additional Resources
 
