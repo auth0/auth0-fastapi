@@ -27,6 +27,7 @@
 
 - **Fully Integrated Auth Flows**: Automatic routes for `/auth/login`, `/auth/logout`, `/auth/callback`, etc.
 - **Session-Based**: Uses secure cookies to store user sessions, either stateless (all data in cookie) or stateful (data in a database).
+- **Custom Token Exchange**: Exchange tokens from external identity providers or legacy systems for Auth0 tokens, with or without establishing a session.
 - **Multiple Custom Domains (MCD)**: Support for applications using multiple custom domains on the same Auth0 tenant.
 - **Account Linking**: Optional routes for linking multiple social or username/password accounts into a single Auth0 profile.
 - **Backchannel Logout**: Receive logout tokens from Auth0 to invalidate sessions server-side.
@@ -307,6 +308,10 @@ For detailed usage patterns, see [examples/MultipleCustomDomains.md](./examples/
 When an enterprise connection has "Use ID Token for Session Expiry" enabled, Auth0 emits a `session_expiry` claim that the SDK enforces as a hard ceiling on the local session - once it passes, the session behaves like "no session" (`get_session()` / `get_user()` return `None`), so `require_session` and your existing redirect-to-login path handle re-authentication transparently. This requires no application code change.
 
 For detailed behavior and how to read the value, see [examples/Sessions.md](./examples/Sessions.md).
+
+### Custom Token Exchange
+
+Exchange a token from an external identity provider or legacy system for Auth0 tokens using [RFC 8693](https://datatracker.ietf.org/doc/html/rfc8693) Token Exchange, without a browser redirect — with or without establishing a session. See [examples/CustomTokenExchange.md](./examples/CustomTokenExchange.md) for setup and code samples.
 
 ## Feedback
 
