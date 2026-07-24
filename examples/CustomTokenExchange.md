@@ -8,7 +8,7 @@ Custom Token Exchange lets your FastAPI backend exchange a token from an externa
 
 | Method | Session effect | Use case |
 |---|---|---|
-| `custom_token_exchange()` | None — the current user session (if any) is untouched | Calling a downstream API with a different audience/scope; service-to-service delegation |
+| `custom_token_exchange()` | None — the current user session (if any) is untouched | Calling a downstream API with a different audience/scope |
 | `login_with_custom_token_exchange()` | Establishes a full Auth0 session, same as completing `/auth/callback` | Logging a user into your app using a token issued by an external system |
 
 Both methods are programmatic — there is no dedicated route mounted by the SDK. You call them from your own route handler.
@@ -102,60 +102,7 @@ async def get_profile(session: dict = Depends(auth_client.require_session)):
 
 > **TIP**: Use `login_with_custom_token_exchange()` for user-migration or external-IdP login flows. Use `custom_token_exchange()` for pure service-to-service or downstream-API scenarios where the caller's own session should not change.
 
-## 3. Actor Tokens (Delegation)
-
-Pass `actor_token`/`actor_token_type` to represent a party acting on behalf of the subject. Auth0 surfaces this as the [`act` claim](https://datatracker.ietf.org/doc/html/rfc8693#section-4.1) on the response:
-
-```python
-result = await auth_client.custom_token_exchange(
-    CustomTokenExchangeOptions(
-        subject_token="user-access-token",
-        subject_token_type="urn:ietf:params:oauth:token-type:access_token",
-        actor_token="service-access-token",
-        actor_token_type="urn:ietf:params:oauth:token-type:access_token",
-        audience="https://downstream-api.example.com",
-    ),
-    store_options={"request": request, "response": response},
-)
-
-if result.act:
-    print(f"Acting party: {result.act['sub']}")
-```
-
-When you use `login_with_custom_token_exchange()` with an actor token, the `act` claim is persisted on the session user and can be read back later:
-
-```python
-result = await auth_client.login_with_custom_token_exchange(
-    LoginWithCustomTokenExchangeOptions(
-        subject_token="user-access-token",
-        subject_token_type="urn:ietf:params:oauth:token-type:access_token",
-        actor_token="service-access-token",
-        actor_token_type="urn:ietf:params:oauth:token-type:access_token",
-    ),
-    store_options={"request": request, "response": response},
-)
-
-user = result.state_data["user"]
-if user.get("act"):
-    print(f"Acting party: {user['act']['sub']}")
-```
-
-Specify an organization when exchanging tokens:
-
-```python
-result = await auth_client.custom_token_exchange(
-    CustomTokenExchangeOptions(
-        subject_token="token-from-external-system",
-        subject_token_type="urn:acme:legacy-session-token",
-        audience="https://downstream-api.example.com",
-        organization="org_abc1234",
-    )
-)
-```
-> **NOTE**: When an `actor_token` is present, Auth0 does not issue a refresh token (`offline_access` is dropped). The acting party is fixed at exchange time and is not re-emitted on a later token refresh.
-
-
-## 4. Error Handling
+## 3. Error Handling
 
 Register the SDK's exception handler once, and `CustomTokenExchangeError` will be mapped to an HTTP `400` JSON response automatically:
 
@@ -193,11 +140,11 @@ async def exchange_token(request: Request, response: Response):
 
 See the [auth0-server-python Custom Token Exchange doc](https://github.com/auth0/auth0-server-python/blob/main/examples/CustomTokenExchange.md#common-error-codes) for the full, up-to-date list of `CustomTokenExchangeErrorCode` values and what triggers each one.
 
-`INVALID_TOKEN_FORMAT` is raised client-side before any network call for an empty or whitespace-only `subject_token`/`actor_token`, or one with a `"Bearer "` prefix. Other malformed-but-nonempty values (including a `subject_token_type` that isn't a valid URI) are not checked client-side and are sent to Auth0, which rejects them.
+`INVALID_TOKEN_FORMAT` is raised client-side before any network call for an empty or whitespace-only `subject_token`, or one with a `"Bearer "` prefix. Other malformed-but-nonempty values (including a `subject_token_type` that isn't a valid URI) are not checked client-side and are sent to Auth0, which rejects them.
 
-## 5. Token Type URIs
+## 4. Token Type URIs
 
-`subject_token_type` and `actor_token_type` accept any URI — a standard RFC 8693 URN (e.g. `urn:ietf:params:oauth:token-type:jwt`) or your own namespace (e.g. `urn:acme:legacy-session-token`).
+`subject_token_type` accepts any URI — a standard RFC 8693 URN (e.g. `urn:ietf:params:oauth:token-type:jwt`) or your own namespace (e.g. `urn:acme:legacy-session-token`).
 
 See the [auth0-server-python Custom Token Exchange doc](https://github.com/auth0/auth0-server-python/blob/main/examples/CustomTokenExchange.md) for the full set of standard token-type URNs, and the [official Auth0 documentation](https://auth0.com/docs/authenticate/custom-token-exchange) for which namespaces are reserved and cannot be used as a *custom* `subject_token_type` when configuring a token-exchange profile in the Auth0 Dashboard.
 

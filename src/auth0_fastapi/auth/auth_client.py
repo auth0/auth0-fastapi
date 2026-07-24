@@ -234,19 +234,18 @@ class AuthClient:
         Does not create or modify the current session.
 
         Args:
-            options: Subject/actor token details and exchange parameters
-                (subject_token, subject_token_type, audience, scope, actor_token,
-                actor_token_type, organization, authorization_params).
+            options: Subject token details and exchange parameters
+                (subject_token, subject_token_type, audience, scope,
+                organization, authorization_params).
             store_options: Optional options passed to the Transaction and State
                 Store. Only required when using Multiple Custom Domains, where
                 the domain resolver needs the incoming request.
 
         Returns:
-            The raw TokenExchangeResponse (access_token, expires_in, and, when
-            an actor_token was supplied, the decoded act claim).
+            The raw TokenExchangeResponse (access_token, expires_in).
 
         Raises:
-            CustomTokenExchangeError: If the exchange fails or the subject/actor
+            CustomTokenExchangeError: If the exchange fails or the subject
                 token parameters are invalid (see CustomTokenExchangeErrorCode).
         """
         return await self.client.custom_token_exchange(options, store_options=store_options)
@@ -261,9 +260,9 @@ class AuthClient:
         establishes a session for the resulting user.
 
         Args:
-            options: Subject/actor token details and exchange parameters
-                (subject_token, subject_token_type, audience, scope, actor_token,
-                actor_token_type, organization, authorization_params).
+            options: Subject token details and exchange parameters
+                (subject_token, subject_token_type, audience, scope,
+                organization, authorization_params).
             store_options: Options passed to the Transaction and State Store.
                 Must include {"request": request, "response": response} so the
                 session cookie can be written on response.
@@ -273,7 +272,7 @@ class AuthClient:
             (including the resulting user).
 
         Raises:
-            CustomTokenExchangeError: If the exchange fails or the subject/actor
+            CustomTokenExchangeError: If the exchange fails or the subject
                 token parameters are invalid (see CustomTokenExchangeErrorCode).
             ValueError: If store_options is missing the response needed to
                 write the session cookie.
