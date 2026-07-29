@@ -5,6 +5,7 @@
 
 **Added**
 - feat: support custom token exchange [\#141](https://github.com/auth0/auth0-fastapi/pull/141) ([rmad17](https://github.com/rmad17))
+
 **Changed**
 - chore: updated dependencies latest version [\#147](https://github.com/auth0/auth0-fastapi/pull/147) ([rmad17](https://github.com/rmad17))
 
