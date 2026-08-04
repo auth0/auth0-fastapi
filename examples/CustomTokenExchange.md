@@ -102,7 +102,35 @@ async def get_profile(session: dict = Depends(auth_client.require_session)):
 
 > **TIP**: Use `login_with_custom_token_exchange()` for user-migration or external-IdP login flows. Use `custom_token_exchange()` for pure service-to-service or downstream-API scenarios where the caller's own session should not change.
 
-## 3. Error Handling
+## 3. Impersonation via Session Transfer (STT)
+
+Custom Token Exchange can also mint a **Session Transfer Token (STT)** to log an agent into a target app **as** a customer (impersonation via session transfer). For how STTs work, the actor requirement, and Auth0-side configuration, see the [auth0-server-python STT doc](https://github.com/auth0/auth0-server-python/blob/main/examples/CustomTokenExchange.md#8-impersonation-via-session-transfer-stt). This section  covers the FastAPI wrappers and how the flow maps onto the mounted routes.
+
+`AuthClient` exposes `request_session_transfer_token()` (async, mints the STT) and `build_session_transfer_redirect()` (**sync**, builds the redirect URL) on the initiator side:
+
+```python
+@router.post("/impersonate")
+async def impersonate(request: Request):
+    auth_client = request.app.state.auth_client
+
+    result = await auth_client.request_session_transfer_token(
+        subject_token="customer-123@example.com",  # who to impersonate; validated by your Action
+        subject_token_type="urn:mycompany:impersonation-token",
+        store_options={"request": request, "response": None},  # reads the agent session for the actor
+    )
+    redirect_url = auth_client.build_session_transfer_redirect(
+        "https://customer-app.example.com/auth/login", result
+    )
+    return RedirectResponse(url=redirect_url, status_code=302)
+```
+
+On the **target** side there is no new SDK code. The SDK's mounted `/auth/login` route already forwards arbitrary query params to `/authorize`, so the redirect lands on `/auth/login?session_transfer_token=...` and the standard callback establishes the impersonated session. Read the acting party off the session afterwards with `session["user"].get("act")`.
+
+> **NOTE**: `build_session_transfer_redirect` attaches a single-use credential to the target URL, so that URL must be a trusted, app-controlled value. Never derive it from untrusted input such as a user-supplied `returnTo`. The SDK enforces an absolute https target (http only for localhost/loopback) and rejects a fragment.
+
+The STT-specific error codes (`ACTOR_UNAVAILABLE`, raised client-side when no actor can be resolved; `SETACTOR_REQUIRED`; `SESSION_TRANSFER_DISABLED`) are on `CustomTokenExchangeErrorCode` and surface through the same handling as below.
+
+## 4. Error Handling
 
 Register the SDK's exception handler once, and `CustomTokenExchangeError` will be mapped to an HTTP `400` JSON response automatically:
 
@@ -142,7 +170,7 @@ See the [auth0-server-python Custom Token Exchange doc](https://github.com/auth0
 
 `INVALID_TOKEN_FORMAT` is raised client-side before any network call for an empty or whitespace-only `subject_token`, or one with a `"Bearer "` prefix. Other malformed-but-nonempty values (including a `subject_token_type` that isn't a valid URI) are not checked client-side and are sent to Auth0, which rejects them.
 
-## 4. Token Type URIs
+## 5. Token Type URIs
 
 `subject_token_type` accepts any URI — a standard RFC 8693 URN (e.g. `urn:ietf:params:oauth:token-type:jwt`) or your own namespace (e.g. `urn:acme:legacy-session-token`).
 

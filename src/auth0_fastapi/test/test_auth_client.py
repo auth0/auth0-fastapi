@@ -8,6 +8,7 @@ from auth0_server_python.auth_types import (
     CustomTokenExchangeOptions,
     LoginWithCustomTokenExchangeOptions,
     LoginWithCustomTokenExchangeResult,
+    SessionTransferTokenResult,
     TokenExchangeResponse,
 )
 from auth0_server_python.error import CustomTokenExchangeError, CustomTokenExchangeErrorCode
@@ -764,3 +765,113 @@ class TestCustomTokenExchange:
 
             with pytest.raises(ValueError):
                 await auth_client.login_with_custom_token_exchange(options, store_options={})
+
+
+class TestSessionTransferToken:
+    """Test Session Transfer Token (STT) impersonation-via-session-transfer wrappers."""
+
+    @pytest.mark.asyncio
+    async def test_request_session_transfer_token_delegates_and_returns(
+        self, auth_client, mock_request, mock_response
+    ):
+        """Test that request_session_transfer_token forwards all args and returns the client's result."""
+        mock_result = SessionTransferTokenResult(
+            session_transfer_token="opaque-stt",
+            issued_token_type="urn:auth0:params:oauth:token-type:session_transfer_token",
+            expires_in=60,
+            token_type="N_A",
+        )
+
+        with patch.object(
+            auth_client.client, 'request_session_transfer_token', new_callable=AsyncMock
+        ) as mock_request_stt:
+            mock_request_stt.return_value = mock_result
+
+            result = await auth_client.request_session_transfer_token(
+                subject_token="test-user123-john@example.com",
+                subject_token_type="urn:mycompany:m2m-test-token",
+                actor_token="agent-id-token",
+                actor_token_type="urn:ietf:params:oauth:token-type:id_token",
+                scope="openid profile",
+                organization="org_123",
+                store_options={"request": mock_request, "response": mock_response},
+            )
+
+            assert result == mock_result
+            mock_request_stt.assert_called_once_with(
+                subject_token="test-user123-john@example.com",
+                subject_token_type="urn:mycompany:m2m-test-token",
+                actor_token="agent-id-token",
+                actor_token_type="urn:ietf:params:oauth:token-type:id_token",
+                scope="openid profile",
+                organization="org_123",
+                store_options={"request": mock_request, "response": mock_response},
+            )
+
+    @pytest.mark.asyncio
+    async def test_request_session_transfer_token_defaults_optional_args_to_none(self, auth_client):
+        """Test that omitting the optional args passes None so the client sources the actor from the session."""
+        with patch.object(
+            auth_client.client, 'request_session_transfer_token', new_callable=AsyncMock
+        ) as mock_request_stt:
+            mock_request_stt.return_value = SessionTransferTokenResult(
+                session_transfer_token="opaque-stt",
+                issued_token_type="urn:auth0:params:oauth:token-type:session_transfer_token",
+                expires_in=60,
+            )
+
+            await auth_client.request_session_transfer_token(
+                subject_token="subject",
+                subject_token_type="urn:mycompany:m2m-test-token",
+            )
+
+            call_kwargs = mock_request_stt.call_args.kwargs
+            assert call_kwargs["actor_token"] is None
+            assert call_kwargs["actor_token_type"] is None
+            assert call_kwargs["scope"] is None
+            assert call_kwargs["organization"] is None
+            assert call_kwargs["store_options"] is None
+
+    @pytest.mark.asyncio
+    async def test_request_session_transfer_token_error_propagates(self, auth_client):
+        """Test that ACTOR_UNAVAILABLE (and other CTE errors) from the client are not swallowed or wrapped."""
+        with patch.object(
+            auth_client.client, 'request_session_transfer_token', new_callable=AsyncMock
+        ) as mock_request_stt:
+            mock_request_stt.side_effect = CustomTokenExchangeError(
+                CustomTokenExchangeErrorCode.ACTOR_UNAVAILABLE,
+                "No usable actor token.",
+            )
+
+            with pytest.raises(CustomTokenExchangeError) as exc_info:
+                await auth_client.request_session_transfer_token(
+                    subject_token="subject",
+                    subject_token_type="urn:mycompany:m2m-test-token",
+                )
+
+            assert exc_info.value.code == CustomTokenExchangeErrorCode.ACTOR_UNAVAILABLE
+
+    def test_build_session_transfer_redirect_delegates_and_returns(self, auth_client):
+        """Test that build_session_transfer_redirect forwards args and returns the URL string synchronously."""
+        result = SessionTransferTokenResult(
+            session_transfer_token="opaque-stt",
+            issued_token_type="urn:auth0:params:oauth:token-type:session_transfer_token",
+            expires_in=60,
+        )
+        expected_url = "https://target.example.com/auth/login?session_transfer_token=opaque-stt"
+
+        with patch.object(auth_client.client, 'build_session_transfer_redirect') as mock_build:
+            mock_build.return_value = expected_url
+
+            url = auth_client.build_session_transfer_redirect(
+                "https://target.example.com/auth/login",
+                result,
+                organization="org_123",
+            )
+
+            assert url == expected_url
+            mock_build.assert_called_once_with(
+                "https://target.example.com/auth/login",
+                result,
+                organization="org_123",
+            )
