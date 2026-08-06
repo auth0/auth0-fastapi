@@ -104,29 +104,35 @@ async def get_profile(session: dict = Depends(auth_client.require_session)):
 
 ## 3. Impersonation via Session Transfer (STT)
 
-Custom Token Exchange can also mint a **Session Transfer Token (STT)** to log an agent into a target app **as** a customer (impersonation via session transfer). For how STTs work, the actor requirement, and Auth0-side configuration, see the [auth0-server-python STT doc](https://github.com/auth0/auth0-server-python/blob/main/examples/CustomTokenExchange.md#8-impersonation-via-session-transfer-stt). This section  covers the FastAPI wrappers and how the flow maps onto the mounted routes.
+Custom Token Exchange can also mint a **Session Transfer Token (STT)** to log an agent into a target app **as** a customer (impersonation via session transfer). For how STTs work, the actor requirement, and Auth0-side configuration, see the [auth0-server-python Custom Token Exchange doc](https://github.com/auth0/auth0-server-python/blob/main/examples/CustomTokenExchange.md) and its Impersonation via Session Transfer section. This section covers the FastAPI wrappers and how the flow maps onto the mounted routes.
 
 `AuthClient` exposes `request_session_transfer_token()` (async, mints the STT) and `build_session_transfer_redirect()` (**sync**, builds the redirect URL) on the initiator side:
 
 ```python
 @router.post("/impersonate")
-async def impersonate(request: Request):
+async def impersonate(request: Request, response: Response):
     auth_client = request.app.state.auth_client
 
     result = await auth_client.request_session_transfer_token(
         subject_token="customer-123@example.com",  # who to impersonate; validated by your Action
         subject_token_type="urn:mycompany:impersonation-token",
-        store_options={"request": request, "response": None},  # reads the agent session for the actor
+        # Pass both request and response: sourcing the actor from the agent session can
+        # refresh an expired ID token, which writes the session cookie back on response.
+        store_options={"request": request, "response": response},
     )
     redirect_url = auth_client.build_session_transfer_redirect(
         "https://customer-app.example.com/auth/login", result
     )
-    return RedirectResponse(url=redirect_url, status_code=302)
+    return RedirectResponse(url=redirect_url, status_code=302, headers=response.headers)
 ```
 
 On the **target** side there is no new SDK code. The SDK's mounted `/auth/login` route already forwards arbitrary query params to `/authorize`, so the redirect lands on `/auth/login?session_transfer_token=...` and the standard callback establishes the impersonated session. Read the acting party off the session afterwards with `session["user"].get("act")`.
 
-> **NOTE**: `build_session_transfer_redirect` attaches a single-use credential to the target URL, so that URL must be a trusted, app-controlled value. Never derive it from untrusted input such as a user-supplied `returnTo`. The SDK enforces an absolute https target (http only for localhost/loopback) and rejects a fragment.
+Impersonation is one principal acting as another, so the mint is the event worth recording. The SDK does not log it for you. After a successful `request_session_transfer_token`, record who impersonated whom and when (the agent from your own auth context, the customer from your `subject_token`), so each impersonation is auditable on the initiator side, not just via the `act` claim the target later sees.
+
+> **NOTE**: `build_session_transfer_redirect` attaches a single-use credential to the target URL, so that URL must be a trusted, app-controlled value. Never derive it from untrusted input such as a user-supplied `returnTo`. The SDK checks the URL shape, not the host: it requires an absolute https target (http only for localhost/loopback) and rejects a fragment, but any https host passes, so passing a trusted app-controlled value is on you.
+
+> **NOTE**: On the target, redemption via the mounted `/auth/login` route is incompatible with `pushed_authorization_requests`. When PAR is enabled the SDK does not forward inline authorization parameters, so `session_transfer_token` never reaches `/authorize` and the STT is not redeemed. Redeem the STT on a client (or a route) without PAR.
 
 The STT-specific error codes (`ACTOR_UNAVAILABLE`, raised client-side when no actor can be resolved; `SETACTOR_REQUIRED`; `SESSION_TRANSFER_DISABLED`) are on `CustomTokenExchangeErrorCode` and surface through the same handling as below.
 

@@ -16,6 +16,7 @@ from fastapi import HTTPException, Request, Response
 
 from auth0_fastapi.auth.auth_client import AuthClient
 from auth0_fastapi.config import Auth0Config
+from auth0_fastapi.errors import InvalidArgumentError
 
 
 @pytest.fixture
@@ -875,3 +876,16 @@ class TestSessionTransferToken:
                 result,
                 organization="org_123",
             )
+
+    def test_build_session_transfer_redirect_propagates_validation_error(self, auth_client):
+        """The redirect helper surfaces the core's URL validation instead of swallowing it, so a
+        non-https target the docstring promises to reject reaches the caller. (The full validation
+        matrix is covered in auth0-server-python; this only pins wrapper propagation.)"""
+        result = SessionTransferTokenResult(
+            session_transfer_token="opaque-stt",
+            issued_token_type="urn:auth0:params:oauth:token-type:session_transfer_token",
+            expires_in=60,
+        )
+
+        with pytest.raises(InvalidArgumentError):
+            auth_client.build_session_transfer_redirect("http://evil.example.com/login", result)
