@@ -7,6 +7,7 @@ from auth0_server_python.error import (
     BackchannelLogoutError,
     CustomTokenExchangeError,
     CustomTokenExchangeErrorCode,
+    InvalidArgumentError,
     IssuerValidationError,
     MissingRequiredArgumentError,
     MissingTransactionError,

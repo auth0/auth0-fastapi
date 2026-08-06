@@ -12,7 +12,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.9"
-auth0-server-python = ">=1.0.0b13"
+auth0-server-python = ">=1.0.0b14"
 fastapi = ">=0.115.11"
 pydantic = "^2.12.5"
 
