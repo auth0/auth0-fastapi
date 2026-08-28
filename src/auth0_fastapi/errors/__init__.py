@@ -10,7 +10,6 @@ from auth0_server_python.error import (
     IssuerValidationError,
     MissingRequiredArgumentError,
     MissingTransactionError,
-    OrganizationTokenValidationError,
 )
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -40,8 +39,6 @@ def auth0_exception_handler(request: Request, exc: Auth0Error):
         status_code = 422  # Unprocessable Entity
     elif isinstance(exc, IssuerValidationError):
         status_code = 401  # Unauthorized - token issuer mismatch
-    elif isinstance(exc, OrganizationTokenValidationError):
-        status_code = 401  # Unauthorized - organization claim mismatch
     elif isinstance(exc, ApiError):
         status_code = 502  # Bad Gateway, indicates an upstream error
     elif isinstance(exc, AccessTokenError):

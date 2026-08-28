@@ -10,11 +10,7 @@ from auth0_server_python.auth_types import (
     LoginWithCustomTokenExchangeResult,
     TokenExchangeResponse,
 )
-from auth0_server_python.error import (
-    CustomTokenExchangeError,
-    CustomTokenExchangeErrorCode,
-    OrganizationTokenValidationError,
-)
+from auth0_server_python.error import CustomTokenExchangeError, CustomTokenExchangeErrorCode
 from fastapi import HTTPException, Request, Response
 
 from auth0_fastapi.auth.auth_client import AuthClient
@@ -717,23 +713,6 @@ class TestCustomTokenExchange:
             mock_exchange.assert_called_once_with(options, store_options=None)
 
     @pytest.mark.asyncio
-    async def test_custom_token_exchange_organization_validation_error_propagates(self, auth_client):
-        """Test that OrganizationTokenValidationError from the underlying client is not swallowed or wrapped."""
-        options = CustomTokenExchangeOptions(
-            subject_token="external-token",
-            subject_token_type="urn:acme:legacy-session-token",
-            organization="org_abc123",
-        )
-
-        with patch.object(auth_client.client, 'custom_token_exchange', new_callable=AsyncMock) as mock_exchange:
-            mock_exchange.side_effect = OrganizationTokenValidationError(
-                "Organization Id (org_id) claim value mismatch in the ID token"
-            )
-
-            with pytest.raises(OrganizationTokenValidationError):
-                await auth_client.custom_token_exchange(options)
-
-    @pytest.mark.asyncio
     async def test_login_with_custom_token_exchange_success(self, auth_client, mock_request, mock_response):
         """Test that login_with_custom_token_exchange delegates to the underlying client and returns its result."""
         options = LoginWithCustomTokenExchangeOptions(
@@ -803,27 +782,3 @@ class TestCustomTokenExchange:
 
             with pytest.raises(ValueError):
                 await auth_client.login_with_custom_token_exchange(options, store_options={})
-
-    @pytest.mark.asyncio
-    async def test_login_with_custom_token_exchange_organization_validation_error_propagates(
-        self, auth_client, mock_request, mock_response
-    ):
-        """Test that OrganizationTokenValidationError from the underlying client is not swallowed or wrapped."""
-        options = LoginWithCustomTokenExchangeOptions(
-            subject_token="external-token",
-            subject_token_type="urn:acme:corporate-idp-token",
-            organization="org_abc123",
-        )
-
-        with patch.object(
-            auth_client.client, 'login_with_custom_token_exchange', new_callable=AsyncMock
-        ) as mock_login_exchange:
-            mock_login_exchange.side_effect = OrganizationTokenValidationError(
-                "Organization Id (org_id) claim value mismatch in the ID token"
-            )
-
-            with pytest.raises(OrganizationTokenValidationError):
-                await auth_client.login_with_custom_token_exchange(
-                    options,
-                    store_options={"request": mock_request, "response": mock_response},
-                )

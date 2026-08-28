@@ -247,9 +247,6 @@ class AuthClient:
         Raises:
             CustomTokenExchangeError: If the exchange fails or the subject
                 token parameters are invalid (see CustomTokenExchangeErrorCode).
-            OrganizationTokenValidationError: If organization was requested
-                and the returned token does not carry a matching org_id/org_name
-                claim, or carries no ID token to verify it against.
         """
         return await self.client.custom_token_exchange(options, store_options=store_options)
 
@@ -277,9 +274,6 @@ class AuthClient:
         Raises:
             CustomTokenExchangeError: If the exchange fails or the subject
                 token parameters are invalid (see CustomTokenExchangeErrorCode).
-            OrganizationTokenValidationError: If organization was requested
-                and the returned token does not carry a matching org_id/org_name
-                claim, or carries no ID token to verify it against.
             ValueError: If store_options is missing the response needed to
                 write the session cookie.
         """
