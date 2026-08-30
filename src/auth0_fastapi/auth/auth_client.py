@@ -21,12 +21,7 @@ from auth0_fastapi.stores.stateless_state_store import StatelessStateStore
 
 
 class AuthClient:
-    """
-    FastAPI SDK client that wraps auth0-server-python functionality.
-    It configures the underlying client with the proper state and transaction stores,
-    and exposes helper methods for starting login, completing the login callback,
-    logging out, and handling backchannel logout.
-    """
+    """FastAPI wrapper for auth0-server-python authentication flows."""
 
     def __init__(
         self,
@@ -35,20 +30,16 @@ class AuthClient:
         transaction_store=None,
     ):
         self.config = config
-        # Build the redirect URI based on the provided app_base_url
         redirect_uri = f"{str(config.app_base_url).rstrip('/')}/auth/callback"
 
-        # Use provided state_store or default to cookie implementation
         if state_store is None:
             state_store = StatelessStateStore(
                 config.secret, cookie_name="_a0_session", expiration=config.session_expiration)
-        # Use provided transaction_store or default to an cookie implementation
         if transaction_store is None:
             transaction_store = CookieTransactionStore(
                 config.secret, cookie_name="_a0_tx")
 
-        # When domain is callable (MCD), don't hardcode redirect_uri in authorization_params
-        # It will be set dynamically per-request based on the incoming host
+        # MCD resolves the domain per-request, so redirect_uri cannot be set here
         auth_params = {
             "audience": config.audience,
             **(config.authorization_params or {}),
@@ -57,10 +48,10 @@ class AuthClient:
             auth_params["redirect_uri"] = redirect_uri
 
         self.client = ServerClient(
-            domain=config.domain,  # Can be str or callable
+            domain=config.domain,
             client_id=config.client_id,
             client_secret=config.client_secret,
-            redirect_uri=redirect_uri,  # Default fallback
+            redirect_uri=redirect_uri,
             secret=config.secret,
             transaction_store=transaction_store,
             state_store=state_store,
@@ -230,23 +221,17 @@ class AuthClient:
         store_options: dict = None,
     ) -> TokenExchangeResponse:
         """
-        Performs an RFC 8693 token exchange for the given subject token.
-        Does not create or modify the current session.
+        Exchanges a subject token for Auth0 tokens via RFC 8693 without creating a session.
 
         Args:
-            options: Subject token details and exchange parameters
-                (subject_token, subject_token_type, audience, scope,
-                organization, authorization_params).
-            store_options: Optional options passed to the Transaction and State
-                Store. Only required when using Multiple Custom Domains, where
-                the domain resolver needs the incoming request.
+            options: Exchange configuration.
+            store_options: Store options. Required for Multiple Custom Domain domain resolution.
 
         Returns:
-            The raw TokenExchangeResponse (access_token, expires_in).
+            TokenExchangeResponse.
 
         Raises:
-            CustomTokenExchangeError: If the exchange fails or the subject
-                token parameters are invalid (see CustomTokenExchangeErrorCode).
+            CustomTokenExchangeError: If the exchange fails.
         """
         return await self.client.custom_token_exchange(options, store_options=store_options)
 
@@ -256,25 +241,17 @@ class AuthClient:
         store_options: dict = None,
     ) -> LoginWithCustomTokenExchangeResult:
         """
-        Performs an RFC 8693 token exchange for the given subject token and
-        establishes a session for the resulting user.
+        Exchanges a subject token for Auth0 tokens via RFC 8693 and establishes a session.
 
         Args:
-            options: Subject token details and exchange parameters
-                (subject_token, subject_token_type, audience, scope,
-                organization, authorization_params).
-            store_options: Options passed to the Transaction and State Store.
-                Must include {"request": request, "response": response} so the
-                session cookie can be written on response.
+            options: Exchange configuration.
+            store_options: Must include request and response to write the session cookie.
 
         Returns:
-            The LoginWithCustomTokenExchangeResult containing the session state
-            (including the resulting user).
+            LoginWithCustomTokenExchangeResult.
 
         Raises:
-            CustomTokenExchangeError: If the exchange fails or the subject
-                token parameters are invalid (see CustomTokenExchangeErrorCode).
-            ValueError: If store_options is missing the response needed to
-                write the session cookie.
+            CustomTokenExchangeError: If the exchange fails.
+            ValueError: If store_options is missing the response.
         """
         return await self.client.login_with_custom_token_exchange(options, store_options=store_options)

@@ -8,7 +8,7 @@ Custom Token Exchange lets your FastAPI backend exchange a token from an externa
 
 | Method | Session effect | Use case |
 |---|---|---|
-| `custom_token_exchange()` | None — the current user session (if any) is untouched | Calling a downstream API with a different audience/scope |
+| `custom_token_exchange()` | None. The current session is untouched. | Calling a downstream API with a different audience/scope |
 | `login_with_custom_token_exchange()` | Establishes a full Auth0 session, same as completing `/auth/callback` | Logging a user into your app using a token issued by an external system |
 
 Both methods are programmatic — there is no dedicated route mounted by the SDK. You call them from your own route handler.
@@ -50,7 +50,6 @@ async def exchange_token(request: Request, response: Response):
 ```python
 from auth0_server_python.auth_types import CustomTokenExchangeOptions
 
-# No FastAPI Request/Response involved — e.g. a background worker
 result = await auth_client.custom_token_exchange(
     CustomTokenExchangeOptions(
         subject_token="service-token",
@@ -82,13 +81,11 @@ async def token_exchange_login(request: Request, response: Response):
         store_options={"request": request, "response": response},
     )
 
-    # The session cookie is now set on `response`. Subsequent requests
-    # can use `Depends(auth_client.require_session)` as usual.
     user = result.state_data["user"]
     return {"user": user}
 ```
 
-Passing `response` in `store_options` is required here — it is how the session store writes the `Set-Cookie` header. Omitting it will raise a `ValueError` from the underlying state store.
+Passing `response` in `store_options` is required. The session store uses it to write the `Set-Cookie` header. Omitting it raises a `ValueError` from the underlying state store.
 
 Once this route completes, protected routes work immediately:
 
@@ -105,8 +102,8 @@ async def get_profile(session: dict = Depends(auth_client.require_session)):
 ## 3. Scoping the Exchange to an Organization
 
 Pass `organization` (an org ID like `org_abc123`, or an org name) to scope the exchange to a specific
-Auth0 Organization. The SDK forwards it to Auth0, which resolves the organization and rejects the
-exchange with a `CustomTokenExchangeError` if the subject is not a member of that organization:
+Auth0 Organization. The SDK forwards it to Auth0. Auth0 rejects the exchange with `CustomTokenExchangeError`
+if the subject is not a member of that organization.
 
 ```python
 result = await auth_client.login_with_custom_token_exchange(
@@ -160,11 +157,11 @@ See the [auth0-server-python Custom Token Exchange doc](https://github.com/auth0
 
 `INVALID_TOKEN_FORMAT` is raised client-side before any network call for an empty or whitespace-only `subject_token`, or one with a `"Bearer "` prefix. Other malformed-but-nonempty values (including a `subject_token_type` that isn't a valid URI) are not checked client-side and are sent to Auth0, which rejects them.
 
-When `organization` is passed and the subject is not a member of that organization, Auth0 rejects the exchange and the SDK surfaces it as a `CustomTokenExchangeError`.
+When `organization` is set and the subject is not a member, Auth0 rejects the exchange as `CustomTokenExchangeError`.
 
 ## 5. Token Type URIs
 
-`subject_token_type` accepts any URI — a standard RFC 8693 URN (e.g. `urn:ietf:params:oauth:token-type:jwt`) or your own namespace (e.g. `urn:acme:legacy-session-token`).
+`subject_token_type` accepts any URI, either a standard RFC 8693 URN (e.g. `urn:ietf:params:oauth:token-type:jwt`) or your own namespace (e.g. `urn:acme:legacy-session-token`).
 
 See the [auth0-server-python Custom Token Exchange doc](https://github.com/auth0/auth0-server-python/blob/main/examples/CustomTokenExchange.md) for the full set of standard token-type URNs, and the [official Auth0 documentation](https://auth0.com/docs/authenticate/custom-token-exchange) for which namespaces are reserved and cannot be used as a *custom* `subject_token_type` when configuring a token-exchange profile in the Auth0 Dashboard.
 
