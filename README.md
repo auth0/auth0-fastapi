@@ -311,7 +311,13 @@ For detailed behavior and how to read the value, see [examples/Sessions.md](./ex
 
 ### Custom Token Exchange
 
-Exchange a token from an external identity provider or legacy system for Auth0 tokens using [RFC 8693](https://datatracker.ietf.org/doc/html/rfc8693) Token Exchange, without a browser redirect - with or without establishing a session. See [examples/CustomTokenExchange.md](./examples/CustomTokenExchange.md) for setup and code samples.
+Exchange a token from an external identity provider or legacy system for Auth0 tokens using [RFC 8693](https://datatracker.ietf.org/doc/html/rfc8693) Token Exchange, without a browser redirect, with or without establishing a session.
+
+Building on token exchange, the SDK also supports:
+
+- **[Impersonation via Session Transfer (STT)](./examples/CustomTokenExchange.md#3-impersonation-via-session-transfer-stt)** - mint a Session Transfer Token to log an agent into a target app as a customer, via `request_session_transfer_token()` and `build_session_transfer_redirect()`.
+
+See [examples/CustomTokenExchange.md](./examples/CustomTokenExchange.md) for setup and code samples.
 
 ## Feedback
 

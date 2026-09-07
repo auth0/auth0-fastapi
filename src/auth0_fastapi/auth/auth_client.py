@@ -221,25 +221,31 @@ class AuthClient:
         store_options: dict = None,
     ) -> SessionTransferTokenResult:
         """
-        Requests a Session Transfer Token (STT) for impersonation via session transfer.
+        Mints a Session Transfer Token (STT) for impersonation via session transfer.
 
-        The returned STT is opaque and single-use - pass it directly to
-        build_session_transfer_redirect and do not decode or store it.
+        Runs a custom token exchange against the session_transfer audience. The
+        returned STT is opaque and single-use; hand it to
+        build_session_transfer_redirect and do not decode or store it. Does not
+        create or modify the current session.
 
         Args:
-            subject_token: Proof of which customer to impersonate (validated by your CTE Action).
-            subject_token_type: Token type URI routing to your CTE Profile.
-            actor_token: The acting party's token. Defaults to the agent session's ID token.
-            actor_token_type: Type URI of the actor token. Defaults to the ID token URN.
-            scope: Space-delimited scopes (optional).
+            subject_token: Proof of which customer to impersonate (validated by your Action).
+            subject_token_type: The subject token type URI routing to your CTE Profile.
+            actor_token: The acting party's token; optional. Defaults to the agent
+                session's ID token.
+            actor_token_type: Type URI of the actor token; defaults to the ID token URN.
+            scope: Space-delimited list of scopes (optional).
             organization: Organization identifier (optional).
-            store_options: Must include request and response to read the agent session.
+            store_options: Options passed to the State Store. Only required for
+                Multiple Custom Domains, where the domain resolver needs the
+                incoming request. Also used to read the agent session for the actor.
 
         Returns:
-            SessionTransferTokenResult containing the STT and its metadata.
+            The SessionTransferTokenResult containing the STT and its metadata.
 
         Raises:
-            CustomTokenExchangeError: If no actor can be resolved or the exchange fails.
+            CustomTokenExchangeError: If no actor can be resolved or the exchange
+                fails (see CustomTokenExchangeErrorCode).
             InvalidArgumentError: If organization is provided but blank.
         """
         return await self.client.request_session_transfer_token(
@@ -261,9 +267,10 @@ class AuthClient:
         """
         Builds the redirect URL that hands the STT to the target app's login URL.
 
-        target_login_url must be a trusted, app-controlled absolute https URL
-        (http is allowed only for localhost/loopback) - the STT is a single-use
-        credential and must not leak to an untrusted host.
+        target_login_url must be a trusted, app-controlled absolute https URL (http
+        is allowed only for localhost/loopback). The STT is a single-use credential
+        and must not leak to an untrusted host, so never derive this URL from
+        untrusted input (such as a user-supplied returnTo).
 
         Args:
             target_login_url: The target app's login URL (absolute, https).
@@ -271,7 +278,8 @@ class AuthClient:
             organization: Organization identifier to forward (optional).
 
         Returns:
-            URL string with session_transfer_token (and organization) as query parameters.
+            A URL string with session_transfer_token (and organization) as query
+            parameters.
 
         Raises:
             MissingRequiredArgumentError: If target_login_url is missing or blank.
@@ -279,7 +287,5 @@ class AuthClient:
                 or organization is blank.
         """
         return self.client.build_session_transfer_redirect(
-            target_login_url=target_login_url,
-            result=result,
-            organization=organization,
+            target_login_url, result, organization=organization
         )

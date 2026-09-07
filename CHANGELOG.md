@@ -1,5 +1,20 @@
 # Change Log
 
+## [1.0.0b10](https://github.com/auth0/auth0-fastapi/tree/1.0.0b10) (2026-08-06)
+[Full Changelog](https://github.com/auth0/auth0-fastapi/compare/1.0.0b9...1.0.0b10)
+
+**Added**
+- feat: add Session Transfer Token support for CTE impersonation via session transfer [\#153](https://github.com/auth0/auth0-fastapi/pull/153) ([kishore7snehil](https://github.com/kishore7snehil))
+
+## [1.0.0b9](https://github.com/auth0/auth0-fastapi/tree/1.0.0b9) (2026-07-29)
+[Full Changelog](https://github.com/auth0/auth0-fastapi/compare/1.0.0b8...1.0.0b9)
+
+**Added**
+- feat: support custom token exchange [\#141](https://github.com/auth0/auth0-fastapi/pull/141) ([rmad17](https://github.com/rmad17))
+
+**Changed**
+- chore: updated dependencies latest version [\#147](https://github.com/auth0/auth0-fastapi/pull/147) ([rmad17](https://github.com/rmad17))
+
 ## [1.0.0b8](https://github.com/auth0/auth0-fastapi/tree/1.0.0b8) (2026-07-08)
 [Full Changelog](https://github.com/auth0/auth0-fastapi/compare/1.0.0b7...1.0.0b8)
 

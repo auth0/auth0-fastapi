@@ -815,3 +815,62 @@ class TestMCDSupport:
 
         assert result is mock_auth_client
         assert callable(result.config.domain)
+
+
+class TestLoginForwardsSessionTransferToken:
+    """The mounted /auth/login route is the STT redemption endpoint on the target: it must
+    forward session_transfer_token (and organization) into authorization_params for /authorize.
+    This is the claim the whole target side rests on, so it is exercised through a live route."""
+
+    def _app(self):
+        from fastapi import APIRouter, FastAPI
+        from fastapi.testclient import TestClient
+
+        config = Auth0Config(
+            domain="test.auth0.com",
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            app_base_url="https://example.com",
+            secret="test_secret_key_minimum_32_characters",
+            mount_routes=True,
+        )
+        auth_client = Mock(spec=AuthClient)
+        auth_client.config = config
+        auth_client.start_login = AsyncMock(return_value="https://test.auth0.com/authorize")
+
+        router = APIRouter()
+        register_auth_routes(router, config)
+        app = FastAPI()
+        app.state.auth_client = auth_client
+        app.include_router(router)
+        # Don't follow the redirect to Auth0; we only care about what start_login received.
+        return TestClient(app, follow_redirects=False), auth_client
+
+    def test_login_forwards_session_transfer_token(self):
+        """A session_transfer_token on the login URL reaches authorization_params."""
+        client, auth_client = self._app()
+
+        client.get("/auth/login?session_transfer_token=stt_opaque_abc")
+
+        auth_client.start_login.assert_called_once()
+        authorization_params = auth_client.start_login.call_args.kwargs["authorization_params"]
+        assert authorization_params.get("session_transfer_token") == "stt_opaque_abc"
+
+    def test_login_forwards_organization_alongside_stt(self):
+        """organization rides along with the STT into authorization_params."""
+        client, auth_client = self._app()
+
+        client.get("/auth/login?session_transfer_token=stt_opaque_abc&organization=org_globex")
+
+        authorization_params = auth_client.start_login.call_args.kwargs["authorization_params"]
+        assert authorization_params.get("session_transfer_token") == "stt_opaque_abc"
+        assert authorization_params.get("organization") == "org_globex"
+
+    def test_plain_login_carries_no_session_transfer_token(self):
+        """A normal login is unchanged: no session_transfer_token in authorization_params."""
+        client, auth_client = self._app()
+
+        client.get("/auth/login")
+
+        authorization_params = auth_client.start_login.call_args.kwargs["authorization_params"]
+        assert "session_transfer_token" not in authorization_params
