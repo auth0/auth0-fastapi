@@ -10,6 +10,7 @@ from auth0_server_python.auth_types import (
     LoginWithCustomTokenExchangeOptions,
     LoginWithCustomTokenExchangeResult,
     LogoutOptions,
+    SessionTransferTokenResult,
     StartInteractiveLoginOptions,
     TokenExchangeResponse,
 )
@@ -255,3 +256,77 @@ class AuthClient:
             ValueError: If store_options is missing the response.
         """
         return await self.client.login_with_custom_token_exchange(options, store_options=store_options)
+
+    async def request_session_transfer_token(
+        self,
+        subject_token: str,
+        subject_token_type: str,
+        actor_token: Optional[str] = None,
+        actor_token_type: Optional[str] = None,
+        scope: Optional[str] = None,
+        organization: Optional[str] = None,
+        store_options: dict = None,
+    ) -> SessionTransferTokenResult:
+        """
+        Requests a Session Transfer Token (STT) for impersonation via session transfer.
+
+        The returned STT is opaque and single-use — pass it directly to
+        build_session_transfer_redirect and do not decode or store it.
+
+        Args:
+            subject_token: Proof of which customer to impersonate (validated by your CTE Action).
+            subject_token_type: Token type URI routing to your CTE Profile.
+            actor_token: The acting party's token. Defaults to the agent session's ID token.
+            actor_token_type: Type URI of the actor token. Defaults to the ID token URN.
+            scope: Space-delimited scopes (optional).
+            organization: Organization identifier (optional).
+            store_options: Must include request and response to read the agent session.
+
+        Returns:
+            SessionTransferTokenResult containing the STT and its metadata.
+
+        Raises:
+            CustomTokenExchangeError: If no actor can be resolved or the exchange fails.
+            InvalidArgumentError: If organization is provided but blank.
+        """
+        return await self.client.request_session_transfer_token(
+            subject_token=subject_token,
+            subject_token_type=subject_token_type,
+            actor_token=actor_token,
+            actor_token_type=actor_token_type,
+            scope=scope,
+            organization=organization,
+            store_options=store_options,
+        )
+
+    def build_session_transfer_redirect(
+        self,
+        target_login_url: str,
+        result: SessionTransferTokenResult,
+        organization: Optional[str] = None,
+    ) -> str:
+        """
+        Builds the redirect URL that hands the STT to the target app's login URL.
+
+        target_login_url must be a trusted, app-controlled absolute https URL
+        (http is allowed only for localhost/loopback) — the STT is a single-use
+        credential and must not leak to an untrusted host.
+
+        Args:
+            target_login_url: The target app's login URL (absolute, https).
+            result: The SessionTransferTokenResult from request_session_transfer_token.
+            organization: Organization identifier to forward (optional).
+
+        Returns:
+            URL string with session_transfer_token (and organization) as query parameters.
+
+        Raises:
+            MissingRequiredArgumentError: If target_login_url is missing or blank.
+            InvalidArgumentError: If target_login_url is not an absolute https URL,
+                or organization is blank.
+        """
+        return self.client.build_session_transfer_redirect(
+            target_login_url=target_login_url,
+            result=result,
+            organization=organization,
+        )

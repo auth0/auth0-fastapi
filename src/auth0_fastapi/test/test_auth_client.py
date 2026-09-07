@@ -8,9 +8,10 @@ from auth0_server_python.auth_types import (
     CustomTokenExchangeOptions,
     LoginWithCustomTokenExchangeOptions,
     LoginWithCustomTokenExchangeResult,
+    SessionTransferTokenResult,
     TokenExchangeResponse,
 )
-from auth0_server_python.error import CustomTokenExchangeError, CustomTokenExchangeErrorCode
+from auth0_server_python.error import CustomTokenExchangeError, CustomTokenExchangeErrorCode, InvalidArgumentError
 from fastapi import HTTPException, Request, Response
 
 from auth0_fastapi.auth.auth_client import AuthClient
@@ -775,3 +776,205 @@ class TestCustomTokenExchange:
 
             with pytest.raises(ValueError):
                 await auth_client.login_with_custom_token_exchange(options, store_options={})
+
+
+class TestSessionTransferToken:
+    """Test Session Transfer Token (STT) impersonation flow — RFC 8693 + Auth0 STT extension."""
+
+    @pytest.mark.asyncio
+    async def test_request_session_transfer_token_delegates_to_core(
+        self, auth_client, mock_request, mock_response
+    ):
+        """Test that request_session_transfer_token delegates to the underlying ServerClient."""
+        mock_result = SessionTransferTokenResult(
+            session_transfer_token="opaque-stt-value",
+            issued_token_type="urn:auth0:params:oauth:token-type:session_transfer_token",
+            expires_in=60,
+            token_type="N_A",
+        )
+
+        with patch.object(
+            auth_client.client, 'request_session_transfer_token', new_callable=AsyncMock
+        ) as mock_request_stt:
+            mock_request_stt.return_value = mock_result
+
+            result = await auth_client.request_session_transfer_token(
+                subject_token="customer-proof-token",
+                subject_token_type="urn:acme:customer-session",
+                store_options={"request": mock_request, "response": mock_response},
+            )
+
+            assert result == mock_result
+            mock_request_stt.assert_called_once_with(
+                subject_token="customer-proof-token",
+                subject_token_type="urn:acme:customer-session",
+                actor_token=None,
+                actor_token_type=None,
+                scope=None,
+                organization=None,
+                store_options={"request": mock_request, "response": mock_response},
+            )
+
+    @pytest.mark.asyncio
+    async def test_request_session_transfer_token_with_explicit_actor(self, auth_client):
+        """Test that an explicit actor_token is forwarded to the core without modification."""
+        actor_token = "agent-id-token"
+        actor_token_type = "urn:ietf:params:oauth:token-type:id_token"
+        mock_result = SessionTransferTokenResult(
+            session_transfer_token="opaque-stt-value",
+            issued_token_type="urn:auth0:params:oauth:token-type:session_transfer_token",
+            expires_in=60,
+        )
+
+        with patch.object(
+            auth_client.client, 'request_session_transfer_token', new_callable=AsyncMock
+        ) as mock_request_stt:
+            mock_request_stt.return_value = mock_result
+
+            await auth_client.request_session_transfer_token(
+                subject_token="customer-proof-token",
+                subject_token_type="urn:acme:customer-session",
+                actor_token=actor_token,
+                actor_token_type=actor_token_type,
+            )
+
+            call_kwargs = mock_request_stt.call_args.kwargs
+            assert call_kwargs["actor_token"] == actor_token
+            assert call_kwargs["actor_token_type"] == actor_token_type
+
+    @pytest.mark.asyncio
+    async def test_request_session_transfer_token_with_organization(self, auth_client):
+        """Test that organization is forwarded to the core for org-scoped STT minting."""
+        mock_result = SessionTransferTokenResult(
+            session_transfer_token="opaque-stt-value",
+            issued_token_type="urn:auth0:params:oauth:token-type:session_transfer_token",
+            expires_in=60,
+        )
+
+        with patch.object(
+            auth_client.client, 'request_session_transfer_token', new_callable=AsyncMock
+        ) as mock_request_stt:
+            mock_request_stt.return_value = mock_result
+
+            await auth_client.request_session_transfer_token(
+                subject_token="customer-proof-token",
+                subject_token_type="urn:acme:customer-session",
+                organization="org_abc123",
+            )
+
+            assert mock_request_stt.call_args.kwargs["organization"] == "org_abc123"
+
+    @pytest.mark.asyncio
+    async def test_request_session_transfer_token_actor_unavailable_propagates(self, auth_client):
+        """Test that ACTOR_UNAVAILABLE propagates when no agent session exists."""
+        with patch.object(
+            auth_client.client, 'request_session_transfer_token', new_callable=AsyncMock
+        ) as mock_request_stt:
+            mock_request_stt.side_effect = CustomTokenExchangeError(
+                CustomTokenExchangeErrorCode.ACTOR_UNAVAILABLE,
+                "No usable actor token: pass actor_token or ensure the agent has a valid session.",
+            )
+
+            with pytest.raises(CustomTokenExchangeError) as exc_info:
+                await auth_client.request_session_transfer_token(
+                    subject_token="customer-proof-token",
+                    subject_token_type="urn:acme:customer-session",
+                )
+
+            assert exc_info.value.code == CustomTokenExchangeErrorCode.ACTOR_UNAVAILABLE
+
+    @pytest.mark.asyncio
+    async def test_request_session_transfer_token_does_not_write_session(self, auth_client):
+        """Test that the STT is returned as-is and never written to the session store."""
+        mock_result = SessionTransferTokenResult(
+            session_transfer_token="opaque-stt-value",
+            issued_token_type="urn:auth0:params:oauth:token-type:session_transfer_token",
+            expires_in=60,
+        )
+
+        with patch.object(
+            auth_client.client, 'request_session_transfer_token', new_callable=AsyncMock
+        ) as mock_request_stt, \
+             patch.object(auth_client.client, 'get_session', new_callable=AsyncMock) as mock_get_session:
+            mock_request_stt.return_value = mock_result
+
+            await auth_client.request_session_transfer_token(
+                subject_token="customer-proof-token",
+                subject_token_type="urn:acme:customer-session",
+            )
+
+            mock_get_session.assert_not_called()
+
+    def test_build_session_transfer_redirect_delegates_to_core(self, auth_client):
+        """Test that build_session_transfer_redirect delegates to the underlying ServerClient."""
+        mock_result = SessionTransferTokenResult(
+            session_transfer_token="opaque-stt-value",
+            issued_token_type="urn:auth0:params:oauth:token-type:session_transfer_token",
+            expires_in=60,
+        )
+        expected_url = "https://app.example.com/auth/login?session_transfer_token=opaque-stt-value"
+
+        with patch.object(
+            auth_client.client, 'build_session_transfer_redirect'
+        ) as mock_build:
+            mock_build.return_value = expected_url
+
+            result = auth_client.build_session_transfer_redirect(
+                "https://app.example.com/auth/login",
+                mock_result,
+            )
+
+            assert result == expected_url
+            mock_build.assert_called_once_with(
+                target_login_url="https://app.example.com/auth/login",
+                result=mock_result,
+                organization=None,
+            )
+
+    def test_build_session_transfer_redirect_with_organization(self, auth_client):
+        """Test that organization is appended to the redirect URL when provided."""
+        mock_result = SessionTransferTokenResult(
+            session_transfer_token="opaque-stt-value",
+            issued_token_type="urn:auth0:params:oauth:token-type:session_transfer_token",
+            expires_in=60,
+        )
+        expected_url = (
+            "https://app.example.com/auth/login"
+            "?session_transfer_token=opaque-stt-value&organization=org_abc123"
+        )
+
+        with patch.object(
+            auth_client.client, 'build_session_transfer_redirect'
+        ) as mock_build:
+            mock_build.return_value = expected_url
+
+            result = auth_client.build_session_transfer_redirect(
+                "https://app.example.com/auth/login",
+                mock_result,
+                organization="org_abc123",
+            )
+
+            assert result == expected_url
+            assert mock_build.call_args.kwargs["organization"] == "org_abc123"
+
+    def test_build_session_transfer_redirect_invalid_url_propagates(self, auth_client):
+        """Test that a non-https target URL raises InvalidArgumentError from the core."""
+        mock_result = SessionTransferTokenResult(
+            session_transfer_token="opaque-stt-value",
+            issued_token_type="urn:auth0:params:oauth:token-type:session_transfer_token",
+            expires_in=60,
+        )
+
+        with patch.object(
+            auth_client.client, 'build_session_transfer_redirect'
+        ) as mock_build:
+            mock_build.side_effect = InvalidArgumentError(
+                "target_login_url",
+                "target_login_url must be an absolute https URL",
+            )
+
+            with pytest.raises(InvalidArgumentError):
+                auth_client.build_session_transfer_redirect(
+                    "http://untrusted.example.com/login",
+                    mock_result,
+                )
