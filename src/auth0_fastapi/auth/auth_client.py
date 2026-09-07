@@ -21,7 +21,12 @@ from auth0_fastapi.stores.stateless_state_store import StatelessStateStore
 
 
 class AuthClient:
-    """FastAPI wrapper for auth0-server-python authentication flows."""
+    """
+    FastAPI SDK client that wraps auth0-server-python functionality.
+    It configures the underlying client with the proper state and transaction stores,
+    and exposes helper methods for starting login, completing the login callback,
+    logging out, and handling backchannel logout.
+    """
 
     def __init__(
         self,
@@ -65,7 +70,11 @@ class AuthClient:
         authorization_params: dict = None,
         store_options: dict = None,
     ) -> str:
-        """Initiates the interactive login flow and returns the authorization URL."""
+        """
+        Initiates the interactive login process.
+        Optionally, an app_state dictionary can be passed to persist additional state.
+        Returns the authorization URL to redirect the user.
+        """
         pushed_authorization_requests = self.config.pushed_authorization_requests
         options = StartInteractiveLoginOptions(
             pushed_authorization_requests=pushed_authorization_requests,
@@ -79,7 +88,10 @@ class AuthClient:
         callback_url: str,
         store_options: dict = None,
     ) -> dict:
-        """Completes the login callback and returns the session state."""
+        """
+        Completes the interactive login process using the callback URL.
+        Returns a dictionary with the session state data.
+        """
         return await self.client.complete_interactive_login(callback_url, store_options=store_options)
 
     async def start_connect_account(
@@ -90,7 +102,11 @@ class AuthClient:
         authorization_params: dict = None,
         store_options: dict = None,
     ) -> str:
-        """Initiates the connected account flow and returns the redirect URL."""
+        """
+        Initiates the connected account process.
+        Optionally, an app_state dictionary can be passed to persist additional state.
+        Returns the connect URL to redirect the user.
+        """
         options = ConnectAccountOptions(
             connection=connection,
             scopes=scopes,
@@ -104,7 +120,10 @@ class AuthClient:
         url: str,
         store_options: dict = None,
     ) -> CompleteConnectAccountResponse:
-        """Completes the connect account callback and returns the response."""
+        """
+        Completes the connect account process using the callback URL.
+        Returns the completed connect account response.
+        """
         return await self.client.complete_connect_account(url, store_options=store_options)
 
     async def logout(
@@ -112,7 +131,10 @@ class AuthClient:
         return_to: str = None,
         store_options: dict = None,
     ) -> str:
-        """Initiates logout and returns the Auth0 logout URL."""
+        """
+        Initiates logout by clearing the session and generating a logout URL.
+        Optionally accepts a return_to URL for redirection after logout.
+        """
         options = LogoutOptions(return_to=return_to)
         return await self.client.logout(options, store_options=store_options)
 
@@ -121,7 +143,9 @@ class AuthClient:
         logout_token: str,
         store_options: dict = None,
     ) -> None:
-        """Processes a backchannel logout notification."""
+        """
+        Processes a backchannel logout using the provided logout token.
+        """
         return await self.client.handle_backchannel_logout(logout_token, store_options=store_options)
 
     async def start_link_user(
@@ -129,7 +153,15 @@ class AuthClient:
         options: dict,
         store_options: dict = None,
     ) -> str:
-        """Initiates the user linking flow and returns the redirect URL."""
+        """
+        Initiates the user linking process.
+        Options should include:
+          - connection: connection identifier (e.g. 'google-oauth2')
+          - connectionScope: (optional) the scope for the connection
+          - authorizationParams: additional parameters for the /authorize call
+          - appState: any custom state to track (e.g., a returnTo URL)
+        Returns a URL to redirect the user to for linking.
+        """
         return await self.client.start_link_user(options, store_options=store_options)
 
     async def complete_link_user(
@@ -137,7 +169,11 @@ class AuthClient:
         url: str,
         store_options: dict = None,
     ) -> dict:
-        """Completes the user linking callback and returns the app state."""
+        """
+        Completes the user linking process.
+        The provided URL should be the callback URL from Auth0.
+        Returns a dictionary containing the original appState.
+        """
         return await self.client.complete_link_user(url, store_options=store_options)
 
     async def start_unlink_user(
@@ -145,7 +181,14 @@ class AuthClient:
         options: dict,
         store_options: dict = None,
     ) -> str:
-        """Initiates the user unlinking flow and returns the redirect URL."""
+        """
+        Initiates the user unlinking process.
+        Options should include:
+          - connection: connection identifier (e.g. 'google-oauth2')
+          - authorizationParams: additional parameters for the /authorize call
+          - appState: any custom state to track (e.g., a returnTo URL)
+        Returns a URL to redirect the user to for unlinking.
+        """
         return await self.client.start_unlink_user(options, store_options=store_options)
 
     async def complete_unlink_user(
@@ -153,7 +196,11 @@ class AuthClient:
         url: str,
         store_options: dict = None,
     ) -> dict:
-        """Completes the user unlinking callback and returns the app state."""
+        """
+        Completes the user unlinking process.
+        The provided URL should be the callback URL from Auth0.
+        Returns a dictionary containing the original appState.
+        """
         return await self.client.complete_unlink_user(url, store_options=store_options)
 
     async def require_session(
@@ -161,7 +208,11 @@ class AuthClient:
         request: Request,
         response: Response,
     ) -> dict:
-        """FastAPI dependency that returns the current session or raises HTTP 401."""
+        """
+        Dependency method to ensure a session exists.
+        Retrieves the session from the state store using the underlying client.
+        If no session is found, raises an HTTP 401 error.
+        """
         store_options = {"request": request, "response": response}
         session = await self.client.get_session(store_options=store_options)
         if not session:
@@ -221,31 +272,25 @@ class AuthClient:
         store_options: dict = None,
     ) -> SessionTransferTokenResult:
         """
-        Mints a Session Transfer Token (STT) for impersonation via session transfer.
+        Requests a Session Transfer Token (STT) for impersonation via session transfer.
 
-        Runs a custom token exchange against the session_transfer audience. The
-        returned STT is opaque and single-use; hand it to
-        build_session_transfer_redirect and do not decode or store it. Does not
-        create or modify the current session.
+        The returned STT is opaque and single-use - pass it directly to
+        build_session_transfer_redirect and do not decode or store it.
 
         Args:
-            subject_token: Proof of which customer to impersonate (validated by your Action).
-            subject_token_type: The subject token type URI routing to your CTE Profile.
-            actor_token: The acting party's token; optional. Defaults to the agent
-                session's ID token.
-            actor_token_type: Type URI of the actor token; defaults to the ID token URN.
-            scope: Space-delimited list of scopes (optional).
+            subject_token: Proof of which customer to impersonate (validated by your CTE Action).
+            subject_token_type: Token type URI routing to your CTE Profile.
+            actor_token: The acting party's token. Defaults to the agent session's ID token.
+            actor_token_type: Type URI of the actor token. Defaults to the ID token URN.
+            scope: Space-delimited scopes (optional).
             organization: Organization identifier (optional).
-            store_options: Options passed to the State Store. Only required for
-                Multiple Custom Domains, where the domain resolver needs the
-                incoming request. Also used to read the agent session for the actor.
+            store_options: Must include request and response to read the agent session.
 
         Returns:
-            The SessionTransferTokenResult containing the STT and its metadata.
+            SessionTransferTokenResult containing the STT and its metadata.
 
         Raises:
-            CustomTokenExchangeError: If no actor can be resolved or the exchange
-                fails (see CustomTokenExchangeErrorCode).
+            CustomTokenExchangeError: If no actor can be resolved or the exchange fails.
             InvalidArgumentError: If organization is provided but blank.
         """
         return await self.client.request_session_transfer_token(
@@ -267,10 +312,9 @@ class AuthClient:
         """
         Builds the redirect URL that hands the STT to the target app's login URL.
 
-        target_login_url must be a trusted, app-controlled absolute https URL (http
-        is allowed only for localhost/loopback). The STT is a single-use credential
-        and must not leak to an untrusted host, so never derive this URL from
-        untrusted input (such as a user-supplied returnTo).
+        target_login_url must be a trusted, app-controlled absolute https URL
+        (http is allowed only for localhost/loopback) - the STT is a single-use
+        credential and must not leak to an untrusted host.
 
         Args:
             target_login_url: The target app's login URL (absolute, https).
@@ -278,8 +322,7 @@ class AuthClient:
             organization: Organization identifier to forward (optional).
 
         Returns:
-            A URL string with session_transfer_token (and organization) as query
-            parameters.
+            URL string with session_transfer_token (and organization) as query parameters.
 
         Raises:
             MissingRequiredArgumentError: If target_login_url is missing or blank.
