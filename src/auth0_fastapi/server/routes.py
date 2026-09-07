@@ -12,10 +12,7 @@ router = APIRouter()
 
 
 def get_auth_client(request: Request) -> AuthClient:
-    """
-    Dependency function to retrieve the AuthClient instance.
-    Assumes the client is set on the FastAPI application state.
-    """
+    """Dependency to retrieve the AuthClient from app state."""
     auth_client = request.app.state.auth_client
     if not auth_client:
         raise HTTPException(
@@ -28,9 +25,6 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
     Conditionally register auth routes based on config.mount_routes and config.mount_connect_routes.
     """
     if config.mount_connect_routes and config.mount_connected_account_routes:
-        # Connect routes uses the legacy account linking flow for token vault
-        # Connects Accounts is the preferred mechanism
-        # Both mount the `/auth/connect` route to initiate the flow
         raise ConfigurationError(
             "'mount_connect_routes' and 'mount_connected_account_routes' cannot be used together.")
 
@@ -41,20 +35,12 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             response: Response,
             auth_client: AuthClient = Depends(get_auth_client),
         ):
-            """
-            Endpoint to initiate the login process.
-            Optionally accepts a 'return_to' query parameter and passes it as part of the app state.
-            Redirects the user to the Auth0 authorization URL.
-
-            When domain is a callable (MCD), the redirect_uri is built dynamically
-            from the request host to ensure proper domain handling.
-            """
+            """Initiates the Auth0 login flow and redirects to the authorization URL."""
 
             return_to: Optional[str] = request.query_params.get("returnTo")
             authorization_params = {k: v for k, v in request.query_params.items() if k not in [
                 "returnTo"]}
 
-            # Build dynamic redirect_uri from request host when domain is callable
             if callable(auth_client.config.domain):
                 base_url = build_request_base_url(request)
                 authorization_params["redirect_uri"] = f"{base_url}/auth/callback"
@@ -73,11 +59,7 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             response: Response,
             auth_client: AuthClient = Depends(get_auth_client),
         ):
-            """
-            Endpoint to handle the callback after Auth0 authentication.
-            Processes the callback URL and completes the login or connected account flow.
-            Redirects the user to a post-login URL based on appState or a default.
-            """
+            """Handles the Auth0 callback and redirects to the post-login destination."""
             full_callback_url = str(request.url)
 
             try:
@@ -90,20 +72,15 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
                     session_data = await auth_client.complete_login(
                         full_callback_url, store_options={"request": request, "response": response})
 
-                    # Extract the returnTo URL from the appState if available.
                     app_state = session_data.get("app_state", {})
             except Exception as e:
                 raise HTTPException(status_code=400, detail=str(e))
 
-
-            # Extract the returnTo URL from the appState if available.
             return_to = app_state.get("returnTo")
 
-            # Build dynamic default_redirect from request host if domain is callable
             if callable(auth_client.config.domain):
                 default_redirect = build_request_base_url(request)
             else:
-                # Assuming config is stored on app.state
                 default_redirect = auth_client.config.app_base_url
 
             safe_redirect = to_safe_redirect(return_to, default_redirect) if return_to else str(default_redirect)
@@ -115,16 +92,9 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             response: Response,
             auth_client: AuthClient = Depends(get_auth_client),
         ):
-            """
-            Endpoint to handle logout.
-            Clears the session cookie (if applicable) and generates a logout URL,
-            then redirects the user to Auth0's logout endpoint.
-
-            For MCD, builds dynamic returnTo URL based on incoming request host.
-            """
+            """Clears the session and redirects to the Auth0 logout endpoint."""
             return_to: Optional[str] = request.query_params.get("returnTo")
             try:
-                # Build dynamic default_redirect from request host if domain is callable
                 if callable(auth_client.config.domain):
                     default_redirect = build_request_base_url(request)
                 else:
@@ -132,7 +102,7 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
 
                 logout_url = await auth_client.logout(
                     return_to=return_to or default_redirect,
-                    store_options={"request": request, "response": response},  # Pass request for MCD
+                    store_options={"request": request, "response": response},
                 )
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
@@ -144,11 +114,7 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             request: Request,
             auth_client: AuthClient = Depends(get_auth_client),
         ):
-            """
-            Endpoint to process backchannel logout notifications.
-            Expects a JSON body with a 'logout_token'.
-            Returns 204 No Content on success.
-            """
+            """Processes a backchannel logout notification and returns 204 on success."""
             body = await request.json()
             logout_token = body.get("logout_token")
             if not logout_token:
@@ -174,10 +140,7 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             return_to: str = Query(default=None, alias="returnTo"),
             auth_client: AuthClient = Depends(get_auth_client),
         ):
-            """
-            Endpoint to initiate the connect account flow for linking a third-party account to the user's profile.
-            Redirects the user to the Auth0 connect account URL.
-            """
+            """Initiates the connected account flow and redirects to the Auth0 connect URL."""
             authorization_params = {
                 k: v for k, v in request.query_params.items() if k not in ["connection", "returnTo", "scopes"]}
 
@@ -202,7 +165,6 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             auth_client: AuthClient = Depends(get_auth_client),
         ):
 
-            # Extract query parameters (connection, connectionScope, returnTo)
             connection = connection or request.query_params.get("connection")
             connection_scope = connectionScope or request.query_params.get(
                 "connectionScope")
@@ -218,13 +180,10 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             sanitized_return_to = to_safe_redirect(
                 dangerous_return_to or "/", auth_client.config.app_base_url)
 
-            # Create the callback URL for linking
             callback_path = "/auth/connect/callback"
             redirect_uri = create_route_url(
                 callback_path, auth_client.config.app_base_url)
 
-            # Call the startLinkUser method on our AuthClient. This method should accept parameters similar to:
-            # connection, connectionScope, authorizationParams (with redirect_uri), and app_state.
             link_user_url = await auth_client.start_link_user({
                 "connection": connection,
                 "connectionScope": connection_scope,
@@ -244,7 +203,6 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             response: Response,
             auth_client: AuthClient = Depends(get_auth_client),
         ):
-            # Use the full URL from the callback
             callback_url = str(request.url)
             try:
                 result = await auth_client.complete_link_user(
@@ -254,7 +212,6 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             except Exception as e:
                 raise HTTPException(status_code=400, detail=str(e))
 
-            # Retrieve the returnTo parameter from app_state if available
             return_to = result.get("app_state", {}).get("returnTo")
 
             app_base_url = auth_client.config.app_base_url
@@ -271,7 +228,6 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             auth_client: AuthClient = Depends(get_auth_client),
         ):
 
-            # Extract query parameters (connection, connectionScope, returnTo)
             connection = connection or request.query_params.get("connection")
             dangerous_return_to = returnTo or request.query_params.get(
                 "returnTo")
@@ -285,13 +241,10 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             sanitized_return_to = to_safe_redirect(
                 dangerous_return_to or "/", auth_client.config.app_base_url)
 
-            # Create the callback URL for linking
             callback_path = "/auth/unconnect/callback"
             redirect_uri = create_route_url(
                 callback_path, auth_client.config.app_base_url)
 
-            # Call the startLinkUser method on our AuthClient. This method should accept parameters similar to:
-            # connection, connectionScope, authorizationParams (with redirect_uri), and app_state.
             link_user_url = await auth_client.start_unlink_user({
                 "connection": connection,
                 "authorization_params": {
@@ -310,7 +263,6 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             response: Response,
             auth_client: AuthClient = Depends(get_auth_client),
         ):
-            # Use the full URL from the callback
             callback_url = str(request.url)
             try:
                 result = await auth_client.complete_unlink_user(
@@ -320,7 +272,6 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             except Exception as e:
                 raise HTTPException(status_code=400, detail=str(e))
 
-            # Retrieve the returnTo parameter from appState if available
             return_to = result.get("app_state", {}).get("returnTo")
 
             app_base_url = auth_client.config.app_base_url

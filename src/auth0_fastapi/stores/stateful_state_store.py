@@ -1,8 +1,6 @@
 from typing import Any, Optional
 
 from auth0_server_python.auth_types import StateData
-
-#Imported from auth0-server-python
 from auth0_server_python.store.abstract import StateStore
 from fastapi import Response
 
@@ -10,17 +8,14 @@ from ..util import normalize_url
 
 
 class StatefulStateStore(StateStore):
-    """
-    A state store implementation that persists session data in a backend store
-    (for example, Redis or a database). It uses a cookie to keep track of the session ID.
-    The underlying session store must implement asynchronous get, set, delete, and keys methods.
-    """
+    """Stateful session store backed by a persistent store (Redis, database). Tracks session ID in a cookie."""
     def __init__(self, secret: str, store: Any, cookie_name: str = "_a0_session", expiration: int = 259200):
         """
-        :param secret: Secret for encryption (if needed)
-        :param store: The persistent session store (e.g., a Redis client wrapper)
-        :param cookie_name: Name of the cookie holding the session identifier
-        :param expiration: Session expiration time in seconds
+        Args:
+            secret: Secret for encryption.
+            store: Persistent session store (e.g., a Redis client wrapper).
+            cookie_name: Name of the cookie holding the session identifier.
+            expiration: Session expiration in seconds.
         """
         self.secret = secret
         self.store = store
@@ -42,7 +37,6 @@ class StatefulStateStore(StateStore):
             raise ValueError("Response object is required in store options for stateful storage.")
 
         response: Response = options["response"]
-        # Store the JSON representation. In a real implementation, encrypt if needed.
         data = state.model_dump_json()
         await self.store.set(identifier, data, expire=self.expiration)
         response.set_cookie(

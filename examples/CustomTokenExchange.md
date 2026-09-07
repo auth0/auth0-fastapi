@@ -11,7 +11,7 @@ Custom Token Exchange lets your FastAPI backend exchange a token from an externa
 | `custom_token_exchange()` | None. The current session is untouched. | Calling a downstream API with a different audience/scope |
 | `login_with_custom_token_exchange()` | Establishes a full Auth0 session, same as completing `/auth/callback` | Logging a user into your app using a token issued by an external system |
 
-Both methods are programmatic — there is no dedicated route mounted by the SDK. You call them from your own route handler.
+Both methods are programmatic - there is no dedicated route mounted by the SDK. You call them from your own route handler.
 
 ## 1. Basic Token Exchange (no session)
 
@@ -45,7 +45,7 @@ async def exchange_token(request: Request, response: Response):
     }
 ```
 
-`store_options` is optional here — `custom_token_exchange()` does not read or write any cookies. Pass it (as `{"request": request, "response": response}`) only if you've configured [Multiple Custom Domains](../README.md#multiple-custom-domains-mcd) with a domain resolver, since the resolver needs the incoming request to pick a domain. Otherwise it can be omitted entirely, which is useful for service-to-service or background-job scenarios where there is no `Request`/`Response` at all:
+`store_options` is optional here - `custom_token_exchange()` does not read or write any cookies. Pass it (as `{"request": request, "response": response}`) only if you've configured [Multiple Custom Domains](../README.md#multiple-custom-domains-mcd) with a domain resolver, since the resolver needs the incoming request to pick a domain. Otherwise it can be omitted entirely, which is useful for service-to-service or background-job scenarios where there is no `Request`/`Response` at all:
 
 ```python
 from auth0_server_python.auth_types import CustomTokenExchangeOptions
@@ -169,4 +169,4 @@ See the [auth0-server-python Custom Token Exchange doc](https://github.com/auth0
 
 - [Auth0 Custom Token Exchange Documentation](https://auth0.com/docs/authenticate/custom-token-exchange)
 - [RFC 8693 - OAuth 2.0 Token Exchange](https://datatracker.ietf.org/doc/html/rfc8693)
-- [auth0-server-python: Custom Token Exchange](https://github.com/auth0/auth0-server-python/blob/main/examples/CustomTokenExchange.md) — the underlying protocol implementation this SDK wraps
+- [auth0-server-python: Custom Token Exchange](https://github.com/auth0/auth0-server-python/blob/main/examples/CustomTokenExchange.md)

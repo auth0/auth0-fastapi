@@ -779,7 +779,7 @@ class TestCustomTokenExchange:
 
 
 class TestSessionTransferToken:
-    """Test Session Transfer Token (STT) impersonation flow — RFC 8693 + Auth0 STT extension."""
+    """Test Session Transfer Token (STT) impersonation flow - RFC 8693 + Auth0 STT extension."""
 
     @pytest.mark.asyncio
     async def test_request_session_transfer_token_delegates_to_core(

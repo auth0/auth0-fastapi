@@ -1,18 +1,12 @@
 from typing import Any, Optional
 
 from auth0_server_python.auth_types import TransactionData
-
-#Imported from auth0-server-python
 from auth0_server_python.store.abstract import TransactionStore
 from fastapi import Request, Response
 
 
 class CookieTransactionStore(TransactionStore):
-    """
-    Transaction store implementation that uses a cookie to store transaction data.
-    This store expects the FastAPI Request and Response objects to be provided in the
-    store_options parameter.
-    """
+    """Cookie-backed transaction store. Requires request and response in store_options."""
     def __init__(self, secret: str, cookie_name: str = "_a0_tx"):
         super().__init__({"secret": secret})
         self.cookie_name = cookie_name
@@ -32,9 +26,7 @@ class CookieTransactionStore(TransactionStore):
 
         response: Response = options["response"]
 
-        # Encrypt the transaction data using the abstract store method:
         encrypted_value = self.encrypt(identifier, value.model_dump())
-        # Set cookie with a short max_age (e.g., 60 seconds for transactions)
         response.set_cookie(
             key=self.cookie_name,
             value=encrypted_value,
@@ -61,7 +53,6 @@ class CookieTransactionStore(TransactionStore):
             return None
 
         try:
-            # Decrypt the stored value using the abstract store's decrypt method:
             decrypted_data = self.decrypt(identifier, encrypted_value)
             return TransactionData.model_validate(decrypted_data)
         except Exception:

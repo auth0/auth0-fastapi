@@ -1,5 +1,4 @@
 
-# Imported from auth0-server-python
 from typing import Optional
 
 from auth0_server_python.auth_server.server_client import ServerClient
@@ -66,11 +65,7 @@ class AuthClient:
         authorization_params: dict = None,
         store_options: dict = None,
     ) -> str:
-        """
-        Initiates the interactive login process.
-        Optionally, an app_state dictionary can be passed to persist additional state.
-        Returns the authorization URL to redirect the user.
-        """
+        """Initiates the interactive login flow and returns the authorization URL."""
         pushed_authorization_requests = self.config.pushed_authorization_requests
         options = StartInteractiveLoginOptions(
             pushed_authorization_requests=pushed_authorization_requests,
@@ -84,10 +79,7 @@ class AuthClient:
         callback_url: str,
         store_options: dict = None,
     ) -> dict:
-        """
-        Completes the interactive login process using the callback URL.
-        Returns a dictionary with the session state data.
-        """
+        """Completes the login callback and returns the session state."""
         return await self.client.complete_interactive_login(callback_url, store_options=store_options)
 
     async def start_connect_account(
@@ -98,11 +90,7 @@ class AuthClient:
         authorization_params: dict = None,
         store_options: dict = None,
     ) -> str:
-        """
-        Initiates the connected account process.
-        Optionally, an app_state dictionary can be passed to persist additional state.
-        Returns the connect URL to redirect the user.
-        """
+        """Initiates the connected account flow and returns the redirect URL."""
         options = ConnectAccountOptions(
             connection=connection,
             scopes=scopes,
@@ -116,10 +104,7 @@ class AuthClient:
         url: str,
         store_options: dict = None,
     ) -> CompleteConnectAccountResponse:
-        """
-        Completes the connect account process using the callback URL.
-        Returns the completed connect account response.
-        """
+        """Completes the connect account callback and returns the response."""
         return await self.client.complete_connect_account(url, store_options=store_options)
 
     async def logout(
@@ -127,10 +112,7 @@ class AuthClient:
         return_to: str = None,
         store_options: dict = None,
     ) -> str:
-        """
-        Initiates logout by clearing the session and generating a logout URL.
-        Optionally accepts a return_to URL for redirection after logout.
-        """
+        """Initiates logout and returns the Auth0 logout URL."""
         options = LogoutOptions(return_to=return_to)
         return await self.client.logout(options, store_options=store_options)
 
@@ -139,9 +121,7 @@ class AuthClient:
         logout_token: str,
         store_options: dict = None,
     ) -> None:
-        """
-        Processes a backchannel logout using the provided logout token.
-        """
+        """Processes a backchannel logout notification."""
         return await self.client.handle_backchannel_logout(logout_token, store_options=store_options)
 
     async def start_link_user(
@@ -149,15 +129,7 @@ class AuthClient:
         options: dict,
         store_options: dict = None,
     ) -> str:
-        """
-        Initiates the user linking process.
-        Options should include:
-          - connection: connection identifier (e.g. 'google-oauth2')
-          - connectionScope: (optional) the scope for the connection
-          - authorizationParams: additional parameters for the /authorize call
-          - appState: any custom state to track (e.g., a returnTo URL)
-        Returns a URL to redirect the user to for linking.
-        """
+        """Initiates the user linking flow and returns the redirect URL."""
         return await self.client.start_link_user(options, store_options=store_options)
 
     async def complete_link_user(
@@ -165,11 +137,7 @@ class AuthClient:
         url: str,
         store_options: dict = None,
     ) -> dict:
-        """
-        Completes the user linking process.
-        The provided URL should be the callback URL from Auth0.
-        Returns a dictionary containing the original appState.
-        """
+        """Completes the user linking callback and returns the app state."""
         return await self.client.complete_link_user(url, store_options=store_options)
 
     async def start_unlink_user(
@@ -177,14 +145,7 @@ class AuthClient:
         options: dict,
         store_options: dict = None,
     ) -> str:
-        """
-        Initiates the user unlinking process.
-        Options should include:
-          - connection: connection identifier (e.g. 'google-oauth2')
-          - authorizationParams: additional parameters for the /authorize call
-          - appState: any custom state to track (e.g., a returnTo URL)
-        Returns a URL to redirect the user to for unlinking.
-        """
+        """Initiates the user unlinking flow and returns the redirect URL."""
         return await self.client.start_unlink_user(options, store_options=store_options)
 
     async def complete_unlink_user(
@@ -192,11 +153,7 @@ class AuthClient:
         url: str,
         store_options: dict = None,
     ) -> dict:
-        """
-        Completes the user unlinking process.
-        The provided URL should be the callback URL from Auth0.
-        Returns a dictionary containing the original appState.
-        """
+        """Completes the user unlinking callback and returns the app state."""
         return await self.client.complete_unlink_user(url, store_options=store_options)
 
     async def require_session(
@@ -204,11 +161,7 @@ class AuthClient:
         request: Request,
         response: Response,
     ) -> dict:
-        """
-        Dependency method to ensure a session exists.
-        Retrieves the session from the state store using the underlying client.
-        If no session is found, raises an HTTP 401 error.
-        """
+        """FastAPI dependency that returns the current session or raises HTTP 401."""
         store_options = {"request": request, "response": response}
         session = await self.client.get_session(store_options=store_options)
         if not session:
@@ -270,7 +223,7 @@ class AuthClient:
         """
         Requests a Session Transfer Token (STT) for impersonation via session transfer.
 
-        The returned STT is opaque and single-use — pass it directly to
+        The returned STT is opaque and single-use - pass it directly to
         build_session_transfer_redirect and do not decode or store it.
 
         Args:
@@ -309,7 +262,7 @@ class AuthClient:
         Builds the redirect URL that hands the STT to the target app's login URL.
 
         target_login_url must be a trusted, app-controlled absolute https URL
-        (http is allowed only for localhost/loopback) — the STT is a single-use
+        (http is allowed only for localhost/loopback) - the STT is a single-use
         credential and must not leak to an untrusted host.
 
         Args:
