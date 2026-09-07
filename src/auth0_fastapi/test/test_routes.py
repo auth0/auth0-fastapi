@@ -297,13 +297,11 @@ class TestBackchannelLogoutEndpoint:
         mock_request = Mock()
         valid_logout_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ0ZXN0LmF1dGgwLmNvbSJ9.signature"
 
-        # Mock request body
-        mock_request.json = AsyncMock(return_value={"logout_token": valid_logout_token})
+        mock_request.form = AsyncMock(return_value={"logout_token": valid_logout_token})
 
         mock_auth_client.handle_backchannel_logout.return_value = None
 
-        # Simulate backchannel logout endpoint logic
-        body = await mock_request.json()
+        body = await mock_request.form()
         logout_token = body.get("logout_token")
 
         await mock_auth_client.handle_backchannel_logout(logout_token)
@@ -314,10 +312,9 @@ class TestBackchannelLogoutEndpoint:
     async def test_backchannel_logout_missing_token(self, mock_auth_client):
         """Test backchannel logout with missing logout_token."""
         mock_request = Mock()
-        mock_request.json = AsyncMock(return_value={})
+        mock_request.form = AsyncMock(return_value={})
 
-        # Simulate backchannel logout endpoint logic
-        body = await mock_request.json()
+        body = await mock_request.form()
         logout_token = body.get("logout_token")
 
         # Should handle missing token gracefully
@@ -332,12 +329,11 @@ class TestBackchannelLogoutEndpoint:
         """Test backchannel logout with invalid JWT token."""
         mock_request = Mock()
         invalid_token = "invalid.jwt.token"
-        mock_request.json = AsyncMock(return_value={"logout_token": invalid_token})
+        mock_request.form = AsyncMock(return_value={"logout_token": invalid_token})
 
         mock_auth_client.handle_backchannel_logout.side_effect = Exception("Invalid JWT token")
 
-        # Simulate backchannel logout endpoint logic
-        body = await mock_request.json()
+        body = await mock_request.form()
         logout_token = body.get("logout_token")
 
         with pytest.raises(Exception) as exc_info:

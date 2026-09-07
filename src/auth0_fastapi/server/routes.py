@@ -115,7 +115,7 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
             auth_client: AuthClient = Depends(get_auth_client),
         ):
             """Processes a backchannel logout notification and returns 204 on success."""
-            body = await request.json()
+            body = await request.form()
             logout_token = body.get("logout_token")
             if not logout_token:
                 raise HTTPException(
