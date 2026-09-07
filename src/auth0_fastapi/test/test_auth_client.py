@@ -16,7 +16,6 @@ from fastapi import HTTPException, Request, Response
 
 from auth0_fastapi.auth.auth_client import AuthClient
 from auth0_fastapi.config import Auth0Config
-from auth0_fastapi.errors import InvalidArgumentError
 
 
 @pytest.fixture
