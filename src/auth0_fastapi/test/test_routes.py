@@ -297,10 +297,12 @@ class TestBackchannelLogoutEndpoint:
         mock_request = Mock()
         valid_logout_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ0ZXN0LmF1dGgwLmNvbSJ9.signature"
 
+        # Mock request body
         mock_request.form = AsyncMock(return_value={"logout_token": valid_logout_token})
 
         mock_auth_client.handle_backchannel_logout.return_value = None
 
+        # Simulate backchannel logout endpoint logic
         body = await mock_request.form()
         logout_token = body.get("logout_token")
 
@@ -314,6 +316,7 @@ class TestBackchannelLogoutEndpoint:
         mock_request = Mock()
         mock_request.form = AsyncMock(return_value={})
 
+        # Simulate backchannel logout endpoint logic
         body = await mock_request.form()
         logout_token = body.get("logout_token")
 
@@ -333,6 +336,7 @@ class TestBackchannelLogoutEndpoint:
 
         mock_auth_client.handle_backchannel_logout.side_effect = Exception("Invalid JWT token")
 
+        # Simulate backchannel logout endpoint logic
         body = await mock_request.form()
         logout_token = body.get("logout_token")
 
