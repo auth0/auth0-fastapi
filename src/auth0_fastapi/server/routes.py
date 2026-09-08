@@ -146,10 +146,10 @@ def register_auth_routes(router: APIRouter, config: Auth0Config):
         ):
             """
             Endpoint to process backchannel logout notifications.
-            Expects a form-encoded body with a 'logout_token'.
+            Expects a JSON body with a 'logout_token'.
             Returns 204 No Content on success.
             """
-            body = await request.form()
+            body = await request.json()
             logout_token = body.get("logout_token")
             if not logout_token:
                 raise HTTPException(
