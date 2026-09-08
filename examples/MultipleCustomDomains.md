@@ -229,9 +229,9 @@ to work if the resolver returns the same Auth0 domain that was used for those le
 
 The SDK uses a three-tier fallback to determine the session's domain:
 
-1. **`session.domain`** - new sessions created after MCD was enabled store this field.
-2. **Static domain** - if a static `domain` string was configured, it is used as a fallback.
-3. **User's issuer claim** - the hostname is extracted from the `iss` claim in the user's
+1. **`session.domain`** — new sessions created after MCD was enabled store this field.
+2. **Static domain** — if a static `domain` string was configured, it is used as a fallback.
+3. **User's issuer claim** — the hostname is extracted from the `iss` claim in the user's
    ID token (e.g., `https://login.brand-1.com/` yields `login.brand-1.com`).
 
 This means legacy sessions created before MCD support will still work as long as the
@@ -272,10 +272,10 @@ The SDK passes request headers to your domain resolver via `DomainResolverContex
 
 The SDK uses the resolved domain to fetch OIDC metadata and JWKS. If an attacker can influence the resolved domain, they could point the SDK at an OIDC provider they control.
 
-**Always use a mapping or allowlist - never construct domains from raw header values:**
+**Always use a mapping or allowlist — never construct domains from raw header values:**
 
 ```python
-# Safe: allowlist lookup - unknown hosts fall back to default
+# Safe: allowlist lookup — unknown hosts fall back to default
 DOMAIN_MAP = {
     "brand-1.yourapp.com": "login.brand-1.com",
     "brand-2.yourapp.com": "login.brand-2.com",
@@ -287,7 +287,7 @@ async def domain_resolver(context: DomainResolverContext) -> str:
 ```
 
 ```python
-# Risky: constructs domain from raw input - attacker can influence resolved domain
+# Risky: constructs domain from raw input — attacker can influence resolved domain
 async def domain_resolver(context: DomainResolverContext) -> str:
     host = context.request_headers.get("host", "").split(":")[0]
     subdomain = host.split(".")[0]
@@ -302,7 +302,7 @@ Without a trusted proxy layer to validate these headers, an attacker can manipul
 
 ### Trust Forwarded Headers Only Behind a Proxy
 
-If your application is directly exposed to the internet (not behind a reverse proxy), do not trust `x-forwarded-host` or `x-forwarded-proto` - any client can set these headers.
+If your application is directly exposed to the internet (not behind a reverse proxy), do not trust `x-forwarded-host` or `x-forwarded-proto` — any client can set these headers.
 
 Only use forwarded headers when your application runs behind a trusted reverse proxy (nginx, AWS ALB, Cloudflare, etc.) that sets these headers and strips any client-provided values.
 
