@@ -50,6 +50,7 @@ async def exchange_token(request: Request, response: Response):
 ```python
 from auth0_server_python.auth_types import CustomTokenExchangeOptions
 
+# No FastAPI Request/Response involved — e.g. a background worker
 result = await auth_client.custom_token_exchange(
     CustomTokenExchangeOptions(
         subject_token="service-token",
@@ -80,7 +81,8 @@ async def token_exchange_login(request: Request, response: Response):
         ),
         store_options={"request": request, "response": response},
     )
-
+    # The session cookie is now set on `response`. Subsequent requests
+    # can use `Depends(auth_client.require_session)` as usual.
     user = result.state_data["user"]
     return {"user": user}
 ```

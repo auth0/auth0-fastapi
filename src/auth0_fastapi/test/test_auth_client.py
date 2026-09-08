@@ -635,6 +635,7 @@ class TestCustomTokenExchange:
 
     @pytest.mark.asyncio
     async def test_custom_token_exchange_success(self, auth_client, mock_request, mock_response):
+        """Test that custom_token_exchange delegates to the underlying client and returns its result."""
         options = CustomTokenExchangeOptions(
             subject_token="external-token",
             subject_token_type="urn:acme:legacy-session-token",
@@ -661,6 +662,7 @@ class TestCustomTokenExchange:
 
     @pytest.mark.asyncio
     async def test_custom_token_exchange_does_not_touch_session(self, auth_client):
+        """Test that custom_token_exchange never calls get_session or writes to the state store."""
         options = CustomTokenExchangeOptions(
             subject_token="external-token",
             subject_token_type="urn:acme:legacy-session-token",
@@ -678,6 +680,7 @@ class TestCustomTokenExchange:
 
     @pytest.mark.asyncio
     async def test_custom_token_exchange_error_propagates(self, auth_client):
+        """Test that CustomTokenExchangeError from the underlying client is not swallowed or wrapped."""
         options = CustomTokenExchangeOptions(
             subject_token="external-token",
             subject_token_type="urn:acme:legacy-session-token",
@@ -711,6 +714,7 @@ class TestCustomTokenExchange:
 
     @pytest.mark.asyncio
     async def test_login_with_custom_token_exchange_success(self, auth_client, mock_request, mock_response):
+        """Test that login_with_custom_token_exchange delegates to the underlying client and returns its result."""
         options = LoginWithCustomTokenExchangeOptions(
             subject_token="external-token",
             subject_token_type="urn:acme:corporate-idp-token",
@@ -739,6 +743,7 @@ class TestCustomTokenExchange:
     async def test_login_with_custom_token_exchange_passes_store_options_for_session_write(
         self, auth_client, mock_request, mock_response
     ):
+        """Test that request and response are forwarded so the state store can write the session cookie."""
         options = LoginWithCustomTokenExchangeOptions(
             subject_token="external-token",
             subject_token_type="urn:acme:corporate-idp-token",
@@ -762,6 +767,7 @@ class TestCustomTokenExchange:
 
     @pytest.mark.asyncio
     async def test_login_with_custom_token_exchange_missing_response_raises_value_error(self, auth_client):
+        """Test that omitting response in store_options surfaces the ValueError from the state store."""
         options = LoginWithCustomTokenExchangeOptions(
             subject_token="external-token",
             subject_token_type="urn:acme:corporate-idp-token",
