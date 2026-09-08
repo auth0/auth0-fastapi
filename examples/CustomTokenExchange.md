@@ -154,7 +154,7 @@ result = await auth_client.login_with_custom_token_exchange(
 
 ## 5. Error Handling
 
-Register the SDK's exception handler once, and `CustomTokenExchangeError` will be mapped to an HTTP JSON response automatically:
+Register the SDK's exception handler once, and `CustomTokenExchangeError` will be mapped to an HTTP `400` JSON response automatically:
 
 ```python
 from auth0_fastapi.errors import register_exception_handlers
