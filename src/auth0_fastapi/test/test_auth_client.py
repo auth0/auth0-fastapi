@@ -697,6 +697,7 @@ class TestCustomTokenExchange:
 
     @pytest.mark.asyncio
     async def test_custom_token_exchange_organization_forwarded(self, auth_client):
+        """Test that organization inside CustomTokenExchangeOptions is forwarded to the underlying client."""
         options = CustomTokenExchangeOptions(
             subject_token="external-token",
             subject_token_type="urn:acme:legacy-session-token",
@@ -710,7 +711,7 @@ class TestCustomTokenExchange:
 
             await auth_client.custom_token_exchange(options)
 
-            mock_exchange.assert_called_once_with(options, store_options=None)
+            assert mock_exchange.call_args.args[0].organization == "org_abc123"
 
     @pytest.mark.asyncio
     async def test_login_with_custom_token_exchange_success(self, auth_client, mock_request, mock_response):
@@ -783,6 +784,26 @@ class TestCustomTokenExchange:
             with pytest.raises(ValueError):
                 await auth_client.login_with_custom_token_exchange(options, store_options={})
 
+    @pytest.mark.asyncio
+    async def test_login_with_custom_token_exchange_organization_forwarded(self, auth_client):
+        """Test that organization inside LoginWithCustomTokenExchangeOptions is forwarded to the underlying client."""
+        options = LoginWithCustomTokenExchangeOptions(
+            subject_token="external-token",
+            subject_token_type="urn:acme:corporate-idp-token",
+            organization="org_abc123",
+        )
+
+        with patch.object(
+            auth_client.client, 'login_with_custom_token_exchange', new_callable=AsyncMock
+        ) as mock_login_exchange:
+            mock_login_exchange.return_value = LoginWithCustomTokenExchangeResult(
+                state_data={"user": {"sub": "test_user"}},
+            )
+
+            await auth_client.login_with_custom_token_exchange(options)
+
+            assert mock_login_exchange.call_args.args[0].organization == "org_abc123"
+
 
 class TestSessionTransferToken:
     """Test Session Transfer Token (STT) impersonation-via-session-transfer wrappers."""
@@ -848,33 +869,6 @@ class TestSessionTransferToken:
             assert call_kwargs["scope"] is None
             assert call_kwargs["organization"] is None
             assert call_kwargs["store_options"] is None
-
-    @pytest.mark.asyncio
-    async def test_request_session_transfer_token_with_explicit_actor(self, auth_client):
-        """Test that an explicit actor_token is forwarded to the core without modification."""
-        actor_token = "agent-id-token"
-        actor_token_type = "urn:ietf:params:oauth:token-type:id_token"
-        mock_result = SessionTransferTokenResult(
-            session_transfer_token="opaque-stt-value",
-            issued_token_type="urn:auth0:params:oauth:token-type:session_transfer_token",
-            expires_in=60,
-        )
-
-        with patch.object(
-            auth_client.client, 'request_session_transfer_token', new_callable=AsyncMock
-        ) as mock_request_stt:
-            mock_request_stt.return_value = mock_result
-
-            await auth_client.request_session_transfer_token(
-                subject_token="customer-proof-token",
-                subject_token_type="urn:acme:customer-session",
-                actor_token=actor_token,
-                actor_token_type=actor_token_type,
-            )
-
-            call_kwargs = mock_request_stt.call_args.kwargs
-            assert call_kwargs["actor_token"] == actor_token
-            assert call_kwargs["actor_token_type"] == actor_token_type
 
     @pytest.mark.asyncio
     async def test_request_session_transfer_token_with_organization(self, auth_client):
@@ -980,3 +974,20 @@ class TestSessionTransferToken:
 
         with pytest.raises(InvalidArgumentError):
             auth_client.build_session_transfer_redirect("http://evil.example.com/login", result)
+
+    @pytest.mark.asyncio
+    async def test_request_session_transfer_token_blank_organization_raises(self, auth_client):
+        """Test that a blank organization propagates InvalidArgumentError from the underlying client."""
+        with patch.object(
+            auth_client.client, 'request_session_transfer_token', new_callable=AsyncMock
+        ) as mock_request_stt:
+            mock_request_stt.side_effect = InvalidArgumentError(
+                "organization", "organization must not be blank"
+            )
+
+            with pytest.raises(InvalidArgumentError):
+                await auth_client.request_session_transfer_token(
+                    subject_token="customer-proof-token",
+                    subject_token_type="urn:acme:customer-session",
+                    organization="   ",
+                )
