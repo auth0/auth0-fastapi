@@ -1,4 +1,4 @@
-
+# Imported from auth0-server-python
 from typing import Optional
 
 from auth0_server_python.auth_server.server_client import ServerClient
@@ -35,16 +35,20 @@ class AuthClient:
         transaction_store=None,
     ):
         self.config = config
+        # Build the redirect URI based on the provided app_base_url
         redirect_uri = f"{str(config.app_base_url).rstrip('/')}/auth/callback"
 
+        # Use provided state_store or default to cookie implementation
         if state_store is None:
             state_store = StatelessStateStore(
                 config.secret, cookie_name="_a0_session", expiration=config.session_expiration)
+        # Use provided transaction_store or default to an cookie implementation
         if transaction_store is None:
             transaction_store = CookieTransactionStore(
                 config.secret, cookie_name="_a0_tx")
 
-        # MCD resolves the domain per-request, so redirect_uri cannot be set here
+        # When domain is callable (MCD), don't hardcode redirect_uri in authorization_params
+        # It will be set dynamically per-request based on the incoming host
         auth_params = {
             "audience": config.audience,
             **(config.authorization_params or {}),
@@ -53,10 +57,10 @@ class AuthClient:
             auth_params["redirect_uri"] = redirect_uri
 
         self.client = ServerClient(
-            domain=config.domain,
+            domain=config.domain,  # Can be str or callable
             client_id=config.client_id,
             client_secret=config.client_secret,
-            redirect_uri=redirect_uri,
+            redirect_uri=redirect_uri,  # Default fallback
             secret=config.secret,
             transaction_store=transaction_store,
             state_store=state_store,
@@ -226,17 +230,23 @@ class AuthClient:
         store_options: dict = None,
     ) -> TokenExchangeResponse:
         """
-        Exchanges a subject token for Auth0 tokens via RFC 8693 without creating a session.
+        Performs an RFC 8693 token exchange for the given subject token.
+        Does not create or modify the current session.
 
         Args:
-            options: Exchange configuration.
-            store_options: Store options. Required for Multiple Custom Domain domain resolution.
+            options: Subject token details and exchange parameters
+                (subject_token, subject_token_type, audience, scope,
+                organization, authorization_params).
+            store_options: Optional options passed to the Transaction and State
+                Store. Only required when using Multiple Custom Domains, where
+                the domain resolver needs the incoming request.
 
         Returns:
-            TokenExchangeResponse.
+            The raw TokenExchangeResponse (access_token, expires_in).
 
         Raises:
-            CustomTokenExchangeError: If the exchange fails.
+            CustomTokenExchangeError: If the exchange fails or the subject
+                token parameters are invalid (see CustomTokenExchangeErrorCode).
         """
         return await self.client.custom_token_exchange(options, store_options=store_options)
 
@@ -246,18 +256,26 @@ class AuthClient:
         store_options: dict = None,
     ) -> LoginWithCustomTokenExchangeResult:
         """
-        Exchanges a subject token for Auth0 tokens via RFC 8693 and establishes a session.
+        Performs an RFC 8693 token exchange for the given subject token and
+        establishes a session for the resulting user.
 
         Args:
-            options: Exchange configuration.
-            store_options: Must include request and response to write the session cookie.
+            options: Subject token details and exchange parameters
+                (subject_token, subject_token_type, audience, scope,
+                organization, authorization_params).
+            store_options: Options passed to the Transaction and State Store.
+                Must include {"request": request, "response": response} so the
+                session cookie can be written on response.
 
         Returns:
-            LoginWithCustomTokenExchangeResult.
+            The LoginWithCustomTokenExchangeResult containing the session state
+            (including the resulting user).
 
         Raises:
-            CustomTokenExchangeError: If the exchange fails.
-            ValueError: If store_options is missing the response.
+            CustomTokenExchangeError: If the exchange fails or the subject
+                token parameters are invalid (see CustomTokenExchangeErrorCode).
+            ValueError: If store_options is missing the response needed to
+                write the session cookie.
         """
         return await self.client.login_with_custom_token_exchange(options, store_options=store_options)
 
@@ -272,25 +290,31 @@ class AuthClient:
         store_options: dict = None,
     ) -> SessionTransferTokenResult:
         """
-        Requests a Session Transfer Token (STT) for impersonation via session transfer.
+        Mints a Session Transfer Token (STT) for impersonation via session transfer.
 
-        The returned STT is opaque and single-use - pass it directly to
-        build_session_transfer_redirect and do not decode or store it.
+        Runs a custom token exchange against the session_transfer audience. The
+        returned STT is opaque and single-use; hand it to
+        build_session_transfer_redirect and do not decode or store it. Does not
+        create or modify the current session.
 
         Args:
-            subject_token: Proof of which customer to impersonate (validated by your CTE Action).
-            subject_token_type: Token type URI routing to your CTE Profile.
-            actor_token: The acting party's token. Defaults to the agent session's ID token.
-            actor_token_type: Type URI of the actor token. Defaults to the ID token URN.
-            scope: Space-delimited scopes (optional).
+            subject_token: Proof of which customer to impersonate (validated by your Action).
+            subject_token_type: The subject token type URI routing to your CTE Profile.
+            actor_token: The acting party's token; optional. Defaults to the agent
+                session's ID token.
+            actor_token_type: Type URI of the actor token; defaults to the ID token URN.
+            scope: Space-delimited list of scopes (optional).
             organization: Organization identifier (optional).
-            store_options: Must include request and response to read the agent session.
+            store_options: Options passed to the State Store. Only required for
+                Multiple Custom Domains, where the domain resolver needs the
+                incoming request. Also used to read the agent session for the actor.
 
         Returns:
-            SessionTransferTokenResult containing the STT and its metadata.
+            The SessionTransferTokenResult containing the STT and its metadata.
 
         Raises:
-            CustomTokenExchangeError: If no actor can be resolved or the exchange fails.
+            CustomTokenExchangeError: If no actor can be resolved or the exchange
+                fails (see CustomTokenExchangeErrorCode).
             InvalidArgumentError: If organization is provided but blank.
         """
         return await self.client.request_session_transfer_token(
@@ -312,9 +336,10 @@ class AuthClient:
         """
         Builds the redirect URL that hands the STT to the target app's login URL.
 
-        target_login_url must be a trusted, app-controlled absolute https URL
-        (http is allowed only for localhost/loopback) - the STT is a single-use
-        credential and must not leak to an untrusted host.
+        target_login_url must be a trusted, app-controlled absolute https URL (http
+        is allowed only for localhost/loopback). The STT is a single-use credential
+        and must not leak to an untrusted host, so never derive this URL from
+        untrusted input (such as a user-supplied returnTo).
 
         Args:
             target_login_url: The target app's login URL (absolute, https).
@@ -322,7 +347,8 @@ class AuthClient:
             organization: Organization identifier to forward (optional).
 
         Returns:
-            URL string with session_transfer_token (and organization) as query parameters.
+            A URL string with session_transfer_token (and organization) as query
+            parameters.
 
         Raises:
             MissingRequiredArgumentError: If target_login_url is missing or blank.

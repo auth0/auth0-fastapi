@@ -1,6 +1,8 @@
 from typing import Any, Optional, Union
 
 from auth0_server_python.auth_types import StateData
+
+#Imported from auth0-server-python
 from auth0_server_python.store.abstract import StateStore
 from fastapi import Response
 
@@ -16,11 +18,12 @@ class StatelessStateStore(StateStore):
         self.expiration = expiration
         self.max_cookie_size = 4096
 
+        # Default cookie options similar to Fastify's cookie options
         self.cookie_options = {
             "httponly": True,
             "samesite": "lax",
             "path": "/",
-            "secure": True,
+            "secure": True,  # or set to "auto" if preferred
             "max_age": expiration,
         }
 
@@ -42,9 +45,12 @@ class StatelessStateStore(StateStore):
             state_dict = state.dict()
         else:
             state_dict = state
+        # Encrypt the transaction data using the abstract store method:
         encrypted_data = self.encrypt(identifier, state_dict)
+        # Calculate chunk size, ensuring space for the key name and additional characters
         chunk_size = self.max_cookie_size - len(self.cookie_name) - 10
         cookies = {}
+        # Split data into chunks and store in the response cookies
         for i in range(0, len(encrypted_data), chunk_size):
             chunk_name = f"{self.cookie_name}_{i // chunk_size}"
             chunk_value = encrypted_data[i:i + chunk_size]
@@ -74,6 +80,7 @@ class StatelessStateStore(StateStore):
         request = options["request"]
 
         session_parts = []
+        # Extract all cookies that match cookie_prefix
         for key, value in request.cookies.items():
             if key.startswith(self.cookie_name):
                 index = int(key.split("_")[-1])
@@ -81,12 +88,13 @@ class StatelessStateStore(StateStore):
         if not session_parts:
             return ""
 
-        session_parts.sort()
+        session_parts.sort()  # Sort by index
 
         full_encoded_data = "".join(part[1] for part in session_parts)
         if not full_encoded_data:
             return None
         try:
+            # Decrypt the stored value using the abstract store's decrypt method:
             decrypted_data = self.decrypt(identifier, full_encoded_data)
             return decrypted_data
         except Exception:
@@ -105,8 +113,10 @@ class StatelessStateStore(StateStore):
             raise ValueError("Response object is required in store options for stateless storage.")
 
         response: Response = options["response"]
+        # Delete the base cookie if it exists
         response.delete_cookie(key=self.cookie_name)
 
+        # Delete potential cookie chunks (assume a max number of chunks, e.g., 20)
         for i in range(20):
             chunk_key = f"{self.cookie_name}_{i}"
             response.delete_cookie(key=chunk_key)

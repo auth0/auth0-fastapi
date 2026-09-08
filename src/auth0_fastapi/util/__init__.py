@@ -51,11 +51,13 @@ def to_safe_redirect(dangerous_redirect: str, safe_base_url: str) -> Optional[st
         A safe redirect URL string if the origins match, or None otherwise.
     """
     try:
+        # Ensure safe_base_url is a string.
         safe_base_url_str = str(safe_base_url)
         route_url = create_route_url(dangerous_redirect, safe_base_url_str)
     except Exception:
         return None
 
+    # Build origins from string values
     safe_origin = urlparse(safe_base_url_str).scheme + \
         "://" + urlparse(safe_base_url_str).netloc
     route_origin = urlparse(route_url).scheme + "://" + \
@@ -85,6 +87,7 @@ def normalize_url(value: str) -> str:
 
     parsed = urlparse(value)
 
+    # Lowercase scheme and host
     scheme = (parsed.scheme or "https").lower()
     if scheme == "http":
         scheme = "https"
@@ -93,6 +96,7 @@ def normalize_url(value: str) -> str:
     if not host:
         return ""
 
+    # Remove default port
     port = parsed.port
     if port and ((scheme == "https" and port == 443) or (scheme == "http" and port == 80)):
         port = None

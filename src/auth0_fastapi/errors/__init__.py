@@ -1,3 +1,4 @@
+#Imported from auth0-server-python
 from auth0_server_python.error import (
     AccessTokenError,
     AccessTokenForConnectionError,
@@ -16,32 +17,37 @@ from fastapi.responses import JSONResponse
 
 
 class ConfigurationError(Auth0Error):
-    """Invalid SDK configuration."""
-
+    """
+    Error raised when an invalid configuration is used.
+    """
     code = "configuration_error"
 
     def __init__(self, message=None):
-        super().__init__(message or "Invalid SDK configuration.")
+        super().__init__(message or "An invalid configuration was provided.")
         self.name = "ConfigurationError"
 
 def auth0_exception_handler(request: Request, exc: Auth0Error):
-    """Maps Auth0 SDK errors to HTTP status codes."""
+    """
+    Exception handler for Auth0 SDK errors.
+    Maps different Auth0 errors to appropriate HTTP status codes.
+    """
+    # Set a default status code
     status_code = 400
 
     if isinstance(exc, MissingTransactionError):
-        status_code = 404
+        status_code = 404  # Not Found
     elif isinstance(exc, MissingRequiredArgumentError):
-        status_code = 422
+        status_code = 422  # Unprocessable Entity
     elif isinstance(exc, IssuerValidationError):
-        status_code = 401
+        status_code = 401  # Unauthorized - token issuer mismatch
     elif isinstance(exc, ApiError):
-        status_code = 502
+        status_code = 502  # Bad Gateway, indicates an upstream error
     elif isinstance(exc, AccessTokenError):
-        status_code = 401
+        status_code = 401  # Unauthorized
     elif isinstance(exc, BackchannelLogoutError):
-        status_code = 400
+        status_code = 400  # Bad Request
     elif isinstance(exc, AccessTokenForConnectionError):
-        status_code = 400
+        status_code = 400  # Bad Request
 
     return JSONResponse(
         status_code=status_code,
@@ -52,5 +58,7 @@ def auth0_exception_handler(request: Request, exc: Auth0Error):
     )
 
 def register_exception_handlers(app):
-    """Registers the Auth0 exception handler with the FastAPI app."""
+    """
+    Register all Auth0-related exception handlers with the FastAPI app.
+    """
     app.add_exception_handler(Auth0Error, auth0_exception_handler)
