@@ -138,8 +138,7 @@ The STT-specific error codes (`ACTOR_UNAVAILABLE`, raised client-side when no ac
 ## 4. Scoping the Exchange to an Organization
 
 Pass `organization` (an org ID like `org_abc123`, or an org name) to scope the exchange to a specific
-Auth0 Organization. The SDK forwards it to Auth0. Auth0 rejects the exchange with `CustomTokenExchangeError`
-if the subject is not a member of that organization.
+Auth0 Organization. The SDK forwards it to Auth0 as-is.
 
 ```python
 result = await auth_client.login_with_custom_token_exchange(
