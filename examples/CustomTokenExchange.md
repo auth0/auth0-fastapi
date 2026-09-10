@@ -191,7 +191,7 @@ See the [auth0-server-python Custom Token Exchange doc](https://github.com/auth0
 
 `INVALID_TOKEN_FORMAT` is raised client-side before any network call for an empty or whitespace-only `subject_token`, or one with a `"Bearer "` prefix. Other malformed-but-nonempty values (including a `subject_token_type` that isn't a valid URI) are not checked client-side and are sent to Auth0, which rejects them.
 
-When `organization` is set and the subject is not a member, Auth0 rejects the exchange as `CustomTokenExchangeError`.
+When `organization` is set and the subject is not a member, Auth0 rejects the exchange and the SDK surfaces it as `CustomTokenExchangeError`.
 
 ## 6. Token Type URIs
 
