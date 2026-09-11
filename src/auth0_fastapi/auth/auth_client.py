@@ -1,4 +1,3 @@
-
 # Imported from auth0-server-python
 from typing import Optional
 
@@ -316,6 +315,7 @@ class AuthClient:
         Raises:
             CustomTokenExchangeError: If no actor can be resolved or the exchange
                 fails (see CustomTokenExchangeErrorCode).
+            InvalidArgumentError: If organization is provided but blank.
         """
         return await self.client.request_session_transfer_token(
             subject_token=subject_token,

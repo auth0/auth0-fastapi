@@ -11,12 +11,11 @@ from auth0_server_python.auth_types import (
     SessionTransferTokenResult,
     TokenExchangeResponse,
 )
-from auth0_server_python.error import CustomTokenExchangeError, CustomTokenExchangeErrorCode
+from auth0_server_python.error import CustomTokenExchangeError, CustomTokenExchangeErrorCode, InvalidArgumentError
 from fastapi import HTTPException, Request, Response
 
 from auth0_fastapi.auth.auth_client import AuthClient
 from auth0_fastapi.config import Auth0Config
-from auth0_fastapi.errors import InvalidArgumentError
 
 
 @pytest.fixture
@@ -697,6 +696,24 @@ class TestCustomTokenExchange:
                 await auth_client.custom_token_exchange(options)
 
     @pytest.mark.asyncio
+    async def test_custom_token_exchange_organization_forwarded(self, auth_client):
+        """Test that organization inside CustomTokenExchangeOptions is forwarded to the underlying client."""
+        options = CustomTokenExchangeOptions(
+            subject_token="external-token",
+            subject_token_type="urn:acme:legacy-session-token",
+            organization="org_abc123",
+        )
+
+        with patch.object(auth_client.client, 'custom_token_exchange', new_callable=AsyncMock) as mock_exchange:
+            mock_exchange.return_value = TokenExchangeResponse(
+                access_token="token", token_type="Bearer", expires_in=3600
+            )
+
+            await auth_client.custom_token_exchange(options)
+
+            assert mock_exchange.call_args.args[0].organization == "org_abc123"
+
+    @pytest.mark.asyncio
     async def test_login_with_custom_token_exchange_success(self, auth_client, mock_request, mock_response):
         """Test that login_with_custom_token_exchange delegates to the underlying client and returns its result."""
         options = LoginWithCustomTokenExchangeOptions(
@@ -767,6 +784,26 @@ class TestCustomTokenExchange:
             with pytest.raises(ValueError):
                 await auth_client.login_with_custom_token_exchange(options, store_options={})
 
+    @pytest.mark.asyncio
+    async def test_login_with_custom_token_exchange_organization_forwarded(self, auth_client):
+        """Test that organization inside LoginWithCustomTokenExchangeOptions is forwarded to the underlying client."""
+        options = LoginWithCustomTokenExchangeOptions(
+            subject_token="external-token",
+            subject_token_type="urn:acme:corporate-idp-token",
+            organization="org_abc123",
+        )
+
+        with patch.object(
+            auth_client.client, 'login_with_custom_token_exchange', new_callable=AsyncMock
+        ) as mock_login_exchange:
+            mock_login_exchange.return_value = LoginWithCustomTokenExchangeResult(
+                state_data={"user": {"sub": "test_user"}},
+            )
+
+            await auth_client.login_with_custom_token_exchange(options)
+
+            assert mock_login_exchange.call_args.args[0].organization == "org_abc123"
+
 
 class TestSessionTransferToken:
     """Test Session Transfer Token (STT) impersonation-via-session-transfer wrappers."""
@@ -834,6 +871,28 @@ class TestSessionTransferToken:
             assert call_kwargs["store_options"] is None
 
     @pytest.mark.asyncio
+    async def test_request_session_transfer_token_with_organization(self, auth_client):
+        """Test that organization is forwarded to the core for org-scoped STT minting."""
+        mock_result = SessionTransferTokenResult(
+            session_transfer_token="opaque-stt-value",
+            issued_token_type="urn:auth0:params:oauth:token-type:session_transfer_token",
+            expires_in=60,
+        )
+
+        with patch.object(
+            auth_client.client, 'request_session_transfer_token', new_callable=AsyncMock
+        ) as mock_request_stt:
+            mock_request_stt.return_value = mock_result
+
+            await auth_client.request_session_transfer_token(
+                subject_token="customer-proof-token",
+                subject_token_type="urn:acme:customer-session",
+                organization="org_abc123",
+            )
+
+            assert mock_request_stt.call_args.kwargs["organization"] == "org_abc123"
+
+    @pytest.mark.asyncio
     async def test_request_session_transfer_token_error_propagates(self, auth_client):
         """Test that ACTOR_UNAVAILABLE (and other CTE errors) from the client are not swallowed or wrapped."""
         with patch.object(
@@ -877,6 +936,32 @@ class TestSessionTransferToken:
                 organization="org_123",
             )
 
+    def test_build_session_transfer_redirect_with_organization(self, auth_client):
+        """Test that organization is appended to the redirect URL when provided."""
+        mock_result = SessionTransferTokenResult(
+            session_transfer_token="opaque-stt-value",
+            issued_token_type="urn:auth0:params:oauth:token-type:session_transfer_token",
+            expires_in=60,
+        )
+        expected_url = (
+            "https://app.example.com/auth/login"
+            "?session_transfer_token=opaque-stt-value&organization=org_abc123"
+        )
+
+        with patch.object(
+            auth_client.client, 'build_session_transfer_redirect'
+        ) as mock_build:
+            mock_build.return_value = expected_url
+
+            result = auth_client.build_session_transfer_redirect(
+                "https://app.example.com/auth/login",
+                mock_result,
+                organization="org_abc123",
+            )
+
+            assert result == expected_url
+            assert mock_build.call_args.kwargs["organization"] == "org_abc123"
+
     def test_build_session_transfer_redirect_propagates_validation_error(self, auth_client):
         """The redirect helper surfaces the core's URL validation instead of swallowing it, so a
         non-https target the docstring promises to reject reaches the caller. (The full validation
@@ -889,3 +974,20 @@ class TestSessionTransferToken:
 
         with pytest.raises(InvalidArgumentError):
             auth_client.build_session_transfer_redirect("http://evil.example.com/login", result)
+
+    @pytest.mark.asyncio
+    async def test_request_session_transfer_token_blank_organization_raises(self, auth_client):
+        """Test that a blank organization propagates InvalidArgumentError from the underlying client."""
+        with patch.object(
+            auth_client.client, 'request_session_transfer_token', new_callable=AsyncMock
+        ) as mock_request_stt:
+            mock_request_stt.side_effect = InvalidArgumentError(
+                "organization", "organization must not be blank"
+            )
+
+            with pytest.raises(InvalidArgumentError):
+                await auth_client.request_session_transfer_token(
+                    subject_token="customer-proof-token",
+                    subject_token_type="urn:acme:customer-session",
+                    organization="   ",
+                )

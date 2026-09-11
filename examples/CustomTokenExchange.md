@@ -8,10 +8,10 @@ Custom Token Exchange lets your FastAPI backend exchange a token from an externa
 
 | Method | Session effect | Use case |
 |---|---|---|
-| `custom_token_exchange()` | None — the current user session (if any) is untouched | Calling a downstream API with a different audience/scope |
+| `custom_token_exchange()` | None. The current session is untouched. | Calling a downstream API with a different audience/scope |
 | `login_with_custom_token_exchange()` | Establishes a full Auth0 session, same as completing `/auth/callback` | Logging a user into your app using a token issued by an external system |
 
-Both methods are programmatic — there is no dedicated route mounted by the SDK. You call them from your own route handler.
+Both methods are programmatic - there is no dedicated route mounted by the SDK. You call them from your own route handler.
 
 ## 1. Basic Token Exchange (no session)
 
@@ -45,7 +45,7 @@ async def exchange_token(request: Request, response: Response):
     }
 ```
 
-`store_options` is optional here — `custom_token_exchange()` does not read or write any cookies. Pass it (as `{"request": request, "response": response}`) only if you've configured [Multiple Custom Domains](../README.md#multiple-custom-domains-mcd) with a domain resolver, since the resolver needs the incoming request to pick a domain. Otherwise it can be omitted entirely, which is useful for service-to-service or background-job scenarios where there is no `Request`/`Response` at all:
+`store_options` is optional here - `custom_token_exchange()` does not read or write any cookies. Pass it (as `{"request": request, "response": response}`) only if you've configured [Multiple Custom Domains](../README.md#multiple-custom-domains-mcd) with a domain resolver, since the resolver needs the incoming request to pick a domain. Otherwise it can be omitted entirely, which is useful for service-to-service or background-job scenarios where there is no `Request`/`Response` at all:
 
 ```python
 from auth0_server_python.auth_types import CustomTokenExchangeOptions
@@ -81,14 +81,13 @@ async def token_exchange_login(request: Request, response: Response):
         ),
         store_options={"request": request, "response": response},
     )
-
     # The session cookie is now set on `response`. Subsequent requests
     # can use `Depends(auth_client.require_session)` as usual.
     user = result.state_data["user"]
     return {"user": user}
 ```
 
-Passing `response` in `store_options` is required here — it is how the session store writes the `Set-Cookie` header. Omitting it will raise a `ValueError` from the underlying state store.
+Passing `response` in `store_options` is required. The session store uses it to write the `Set-Cookie` header. Omitting it raises a `ValueError` from the underlying state store.
 
 Once this route completes, protected routes work immediately:
 
@@ -136,7 +135,22 @@ Impersonation is one principal acting as another, so the mint is the event worth
 
 The STT-specific error codes (`ACTOR_UNAVAILABLE`, raised client-side when no actor can be resolved; `SETACTOR_REQUIRED`; `SESSION_TRANSFER_DISABLED`) are on `CustomTokenExchangeErrorCode` and surface through the same handling as below.
 
-## 4. Error Handling
+## 4. Scoping the Exchange to an Organization
+
+Pass `organization` (an org ID like `org_abc123`, or an org name) to scope the exchange to a specific Auth0 Organization. The SDK forwards it to Auth0 as-is.
+
+```python
+result = await auth_client.login_with_custom_token_exchange(
+    LoginWithCustomTokenExchangeOptions(
+        subject_token="token-from-external-idp",
+        subject_token_type="urn:acme:corporate-idp-token",
+        organization="org_abc123",
+    ),
+    store_options={"request": request, "response": response},
+)
+```
+
+## 5. Error Handling
 
 Register the SDK's exception handler once, and `CustomTokenExchangeError` will be mapped to an HTTP `400` JSON response automatically:
 
@@ -159,6 +173,7 @@ async def exchange_token(request: Request, response: Response):
             CustomTokenExchangeOptions(
                 subject_token=request.headers.get("x-external-token", ""),
                 subject_token_type="urn:acme:legacy-session-token",
+                organization="org_abc123",
             ),
             store_options={"request": request, "response": response},
         )
@@ -176,9 +191,11 @@ See the [auth0-server-python Custom Token Exchange doc](https://github.com/auth0
 
 `INVALID_TOKEN_FORMAT` is raised client-side before any network call for an empty or whitespace-only `subject_token`, or one with a `"Bearer "` prefix. Other malformed-but-nonempty values (including a `subject_token_type` that isn't a valid URI) are not checked client-side and are sent to Auth0, which rejects them.
 
-## 5. Token Type URIs
+When `organization` is set and the subject is not a member, Auth0 rejects the exchange and the SDK surfaces it as `CustomTokenExchangeError`.
 
-`subject_token_type` accepts any URI — a standard RFC 8693 URN (e.g. `urn:ietf:params:oauth:token-type:jwt`) or your own namespace (e.g. `urn:acme:legacy-session-token`).
+## 6. Token Type URIs
+
+`subject_token_type` accepts any URI, either a standard RFC 8693 URN (e.g. `urn:ietf:params:oauth:token-type:jwt`) or your own namespace (e.g. `urn:acme:legacy-session-token`).
 
 See the [auth0-server-python Custom Token Exchange doc](https://github.com/auth0/auth0-server-python/blob/main/examples/CustomTokenExchange.md) for the full set of standard token-type URNs, and the [official Auth0 documentation](https://auth0.com/docs/authenticate/custom-token-exchange) for which namespaces are reserved and cannot be used as a *custom* `subject_token_type` when configuring a token-exchange profile in the Auth0 Dashboard.
 
@@ -186,4 +203,4 @@ See the [auth0-server-python Custom Token Exchange doc](https://github.com/auth0
 
 - [Auth0 Custom Token Exchange Documentation](https://auth0.com/docs/authenticate/custom-token-exchange)
 - [RFC 8693 - OAuth 2.0 Token Exchange](https://datatracker.ietf.org/doc/html/rfc8693)
-- [auth0-server-python: Custom Token Exchange](https://github.com/auth0/auth0-server-python/blob/main/examples/CustomTokenExchange.md) — the underlying protocol implementation this SDK wraps
+- [auth0-server-python: Custom Token Exchange](https://github.com/auth0/auth0-server-python/blob/main/examples/CustomTokenExchange.md)
