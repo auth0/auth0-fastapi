@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.0.0b11](https://github.com/auth0/auth0-fastapi/tree/1.0.0b11) (2026-09-17)
+[Full Changelog](https://github.com/auth0/auth0-fastapi/compare/1.0.0b10...1.0.0b11)
+
+**Added**
+- docs: Adds documentation for custom token exchange org support [\#160](https://github.com/auth0/auth0-fastapi/pull/160) ([rmad17](https://github.com/rmad17))
+
 ## [1.0.0b10](https://github.com/auth0/auth0-fastapi/tree/1.0.0b10) (2026-08-06)
 [Full Changelog](https://github.com/auth0/auth0-fastapi/compare/1.0.0b9...1.0.0b10)
 
