@@ -15,7 +15,9 @@ env/
 
 #Build files
 dist
-docs
+docs/_build/
+docs/reference/
+docs/_build/json/
 
 #testfile
 server.py
