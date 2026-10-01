@@ -159,11 +159,14 @@ class AuthClient:
     ) -> str:
         """
         Initiates the user linking process.
+
         Options should include:
-          - connection: connection identifier (e.g. 'google-oauth2')
-          - connectionScope: (optional) the scope for the connection
-          - authorizationParams: additional parameters for the /authorize call
-          - appState: any custom state to track (e.g., a returnTo URL)
+
+        - connection: connection identifier (e.g. 'google-oauth2')
+        - connectionScope: (optional) the scope for the connection
+        - authorizationParams: additional parameters for the /authorize call
+        - appState: any custom state to track (e.g., a returnTo URL)
+
         Returns a URL to redirect the user to for linking.
         """
         return await self.client.start_link_user(options, store_options=store_options)
@@ -187,10 +190,13 @@ class AuthClient:
     ) -> str:
         """
         Initiates the user unlinking process.
+
         Options should include:
-          - connection: connection identifier (e.g. 'google-oauth2')
-          - authorizationParams: additional parameters for the /authorize call
-          - appState: any custom state to track (e.g., a returnTo URL)
+
+        - connection: connection identifier (e.g. 'google-oauth2')
+        - authorizationParams: additional parameters for the /authorize call
+        - appState: any custom state to track (e.g., a returnTo URL)
+
         Returns a URL to redirect the user to for unlinking.
         """
         return await self.client.start_unlink_user(options, store_options=store_options)
@@ -230,8 +236,9 @@ class AuthClient:
         store_options: dict = None,
     ) -> TokenExchangeResponse:
         """
-        Performs an RFC 8693 token exchange for the given subject token.
-        Does not create or modify the current session.
+        Performs an `RFC 8693 <https://www.rfc-editor.org/rfc/rfc8693>`_ token
+        exchange for the given subject token. Does not create or modify the
+        current session.
 
         Args:
             options: Subject token details and exchange parameters
@@ -242,11 +249,13 @@ class AuthClient:
                 the domain resolver needs the incoming request.
 
         Returns:
-            The raw TokenExchangeResponse (access_token, expires_in).
+            :class:`TokenExchangeResponse` with ``access_token`` and
+            ``expires_in`` fields.
 
         Raises:
-            CustomTokenExchangeError: If the exchange fails or the subject
-                token parameters are invalid (see CustomTokenExchangeErrorCode).
+            :exc:`CustomTokenExchangeError`: If the exchange fails or the
+                subject token parameters are invalid (see
+                :class:`CustomTokenExchangeErrorCode`).
         """
         return await self.client.custom_token_exchange(options, store_options=store_options)
 
@@ -256,26 +265,28 @@ class AuthClient:
         store_options: dict = None,
     ) -> LoginWithCustomTokenExchangeResult:
         """
-        Performs an RFC 8693 token exchange for the given subject token and
-        establishes a session for the resulting user.
+        Performs an `RFC 8693 <https://www.rfc-editor.org/rfc/rfc8693>`_ token
+        exchange for the given subject token and establishes a session for the
+        resulting user.
 
         Args:
             options: Subject token details and exchange parameters
                 (subject_token, subject_token_type, audience, scope,
                 organization, authorization_params).
             store_options: Options passed to the Transaction and State Store.
-                Must include {"request": request, "response": response} so the
-                session cookie can be written on response.
+                Must include ``{"request": request, "response": response}`` so
+                the session cookie can be written on response.
 
         Returns:
-            The LoginWithCustomTokenExchangeResult containing the session state
-            (including the resulting user).
+            :class:`LoginWithCustomTokenExchangeResult` containing the session
+            state (including the resulting user).
 
         Raises:
-            CustomTokenExchangeError: If the exchange fails or the subject
-                token parameters are invalid (see CustomTokenExchangeErrorCode).
-            ValueError: If store_options is missing the response needed to
-                write the session cookie.
+            :exc:`CustomTokenExchangeError`: If the exchange fails or the
+                subject token parameters are invalid (see
+                :class:`CustomTokenExchangeErrorCode`).
+            :exc:`ValueError`: If ``store_options`` is missing the response
+                needed to write the session cookie.
         """
         return await self.client.login_with_custom_token_exchange(options, store_options=store_options)
 
@@ -310,12 +321,13 @@ class AuthClient:
                 incoming request. Also used to read the agent session for the actor.
 
         Returns:
-            The SessionTransferTokenResult containing the STT and its metadata.
+            :class:`SessionTransferTokenResult` containing the STT and its
+            metadata.
 
         Raises:
-            CustomTokenExchangeError: If no actor can be resolved or the exchange
-                fails (see CustomTokenExchangeErrorCode).
-            InvalidArgumentError: If organization is provided but blank.
+            :exc:`CustomTokenExchangeError`: If no actor can be resolved or
+                the exchange fails (see :class:`CustomTokenExchangeErrorCode`).
+            :exc:`InvalidArgumentError`: If organization is provided but blank.
         """
         return await self.client.request_session_transfer_token(
             subject_token=subject_token,
@@ -347,13 +359,14 @@ class AuthClient:
             organization: Organization identifier to forward (optional).
 
         Returns:
-            A URL string with session_transfer_token (and organization) as query
-            parameters.
+            A URL string with ``session_transfer_token`` (and ``organization``)
+            as query parameters.
 
         Raises:
-            MissingRequiredArgumentError: If target_login_url is missing or blank.
-            InvalidArgumentError: If target_login_url is not an absolute https URL,
-                or organization is blank.
+            :exc:`MissingRequiredArgumentError`: If ``target_login_url`` is
+                missing or blank.
+            :exc:`InvalidArgumentError`: If ``target_login_url`` is not an
+                absolute https URL, or ``organization`` is blank.
         """
         return self.client.build_session_transfer_redirect(
             target_login_url, result, organization=organization
