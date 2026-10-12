@@ -11,6 +11,8 @@ from auth0_server_python.error import (
     IssuerValidationError,
     MissingRequiredArgumentError,
     MissingTransactionError,
+    PasskeyError,
+    PasskeyErrorCode,
 )
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -48,6 +50,8 @@ def auth0_exception_handler(request: Request, exc: Auth0Error):
         status_code = 400  # Bad Request
     elif isinstance(exc, AccessTokenForConnectionError):
         status_code = 400  # Bad Request
+    elif isinstance(exc, PasskeyError) and exc.code == PasskeyErrorCode.TOO_MANY_REQUESTS:
+        status_code = 429
 
     return JSONResponse(
         status_code=status_code,
