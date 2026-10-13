@@ -76,6 +76,22 @@ def passkey_authn_response():
     )
 
 
+@pytest.fixture
+def passkey_login_authn_response():
+    """Fixture providing a WebAuthn assertion credential as the browser serializes it."""
+    return PasskeyAuthResponse(
+        id="cred_abc123",
+        rawId="cred_abc123",
+        type="public-key",
+        response={
+            "clientDataJSON": "client-data",
+            "authenticatorData": "authenticator-data",
+            "signature": "signature",
+            "userHandle": "user-handle",
+        },
+    )
+
+
 class TestAuthClientInitialization:
     """Test AuthClient initialization and configuration security."""
 
@@ -1107,6 +1123,54 @@ class TestPasskey:
             mock_challenge.assert_called_once_with(
                 connection="Username-Password-Authentication",
                 organization="org_abc123",
+                store_options=store_options,
+            )
+
+    @pytest.mark.asyncio
+    async def test_passkey_login_challenge_rate_limit_error_propagates(self, auth_client):
+        """Test that a too_many_requests PasskeyError from the login challenge is not swallowed."""
+        error = PasskeyError(PasskeyErrorCode.TOO_MANY_REQUESTS, "Too many requests")
+
+        with patch.object(auth_client.client, 'passkey_login_challenge', new_callable=AsyncMock) as mock_challenge:
+            mock_challenge.side_effect = error
+
+            with pytest.raises(PasskeyError) as exc_info:
+                await auth_client.passkey_login_challenge(connection="Username-Password-Authentication")
+
+            assert exc_info.value is error
+            assert exc_info.value.code == PasskeyErrorCode.TOO_MANY_REQUESTS
+
+    @pytest.mark.asyncio
+    async def test_signin_with_passkey_forwards_login_assertion(
+        self, auth_client, mock_request, mock_response, passkey_login_authn_response
+    ):
+        """Test that a login assertion and all sign-in arguments reach the underlying client without verification."""
+        store_options = {"request": mock_request, "response": mock_response}
+        mock_result = PasskeyLoginResult(state_data={"user": {"sub": "auth0|abc123"}})
+
+        with patch.object(auth_client.client, 'signin_with_passkey', new_callable=AsyncMock) as mock_signin:
+            mock_signin.return_value = mock_result
+
+            result = await auth_client.signin_with_passkey(
+                auth_session="sess_abc123",
+                authn_response=passkey_login_authn_response,
+                connection="Username-Password-Authentication",
+                organization="org_abc123",
+                scope="openid profile email",
+                audience="https://api.example.com",
+                store_options=store_options,
+            )
+
+            assert result is mock_result
+            mock_signin.assert_called_once_with(
+                auth_session="sess_abc123",
+                authn_response=passkey_login_authn_response,
+                verification=None,
+                connection="Username-Password-Authentication",
+                organization="org_abc123",
+                scope="openid profile email",
+                audience="https://api.example.com",
+                dpop_key=None,
                 store_options=store_options,
             )
 
