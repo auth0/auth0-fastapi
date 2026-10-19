@@ -43,7 +43,7 @@ register_exception_handlers(app)
 
 ## 1. Passkey Signup
 
-The routes below share these request models and constants. The models reject unknown fields and limit lengths before anything reaches Auth0.
+The routes below share these request models, constants and the `client_ip` helper. The models reject unknown fields and limit lengths before anything reaches Auth0. Read [Forward a trusted client IP](#4-security-considerations) before you deploy the helper.
 
 ```python
 from typing import Literal, Optional
@@ -76,6 +76,10 @@ class SigninRequest(BaseModel):
     auth_session: str = Field(min_length=1, max_length=256)
     authn_response: PasskeyAuthResponse
     verification: Optional[VerificationCodes] = None
+
+
+def client_ip(request: Request) -> Optional[str]:
+    return request.client.host if request.client else None
 ```
 
 ### Step 1 - Request a signup challenge
@@ -89,6 +93,7 @@ async def passkey_signup_challenge(body: SignupChallengeRequest, request: Reques
         user_profile=PasskeyUserProfile(email=body.email, phone_number=body.phone_number),
         connection=CONNECTION,
         delivery_method=body.delivery_method,
+        client_ip=client_ip(request),
         store_options={"request": request, "response": response},
     )
 
@@ -145,6 +150,7 @@ async def passkey_signin(body: SigninRequest, request: Request, response: Respon
             authn_response=body.authn_response,
             verification=codes or None,
             connection=CONNECTION,
+            client_ip=client_ip(request),
             store_options={"request": request, "response": response},
         )
     except PasskeyError as e:
@@ -176,6 +182,7 @@ async def passkey_login_challenge(request: Request, response: Response):
 
     challenge = await auth_client.passkey_login_challenge(
         connection=CONNECTION,
+        client_ip=client_ip(request),
         store_options={"request": request, "response": response},
     )
 
@@ -194,12 +201,16 @@ When your database connection requires users to verify their email or phone at s
 
 ### Requirements
 
-Enable identifier verification for email, phone, or both on your database connection. For phone codes, `delivery_method` selects `"text"` or `"voice"`.
+Enable identifier verification for email, phone, or both on your database connection. For email, choose the One-Time Password (OTP) method, because this flow passes codes and does not support verification links.
+
+- Configure an email provider for email codes and a phone provider for phone codes. Without one the code is never sent, so the user can't finish signing up.
+- Deploy a version of your app that passes `verification` to `signin_with_passkey()` before you turn verification on. Otherwise every signup on the connection fails.
+- For phone codes, `delivery_method` selects `"text"` or `"voice"`. It has no effect when only email needs a code. Any other value raises `InvalidArgumentError` before the request is sent.
 
 ### The flow
 
 1. Request the signup challenge. If `verification_required` is set, prompt the user for a code for each identifier it lists.
-2. Collect every code **before** calling `navigator.credentials.create()`. Otherwise a failed verification leaves a saved passkey on the device for a signup that never completed.
+2. Collect every code **before** calling `navigator.credentials.create()`, so a user who never receives a code doesn't end up with a passkey for an account that was never created. The SDK can't enforce this order. Auth0 checks the codes only in `signin_with_passkey()`, after the credential exists, so after a wrong code the passkey has no account behind it until a retry with that same credential succeeds.
 3. Create the credential, then post it with the codes to `/passkey/signin`.
 
 ```javascript
@@ -250,7 +261,10 @@ Cap the number of attempts in the browser, because Auth0 also limits them. Send 
 - **Too many wrong codes, an expired code, or an expired session** (`invalid_grant` without `auth_session`). Start again from the signup challenge.
 - **A missing code** (`invalid_request`). The session stays valid. Resubmit with the same `auth_session` and a code for every identifier in `verification_required`.
 - **A server error** (`server_error`). Retry with the same `auth_session`, credential and codes. If that fails with `invalid_grant` and no `auth_session`, start again.
-- **Any other failure** is raised with the code Auth0 returned.
+- **A rate limit** (`status_code` is 429). Auth0 rejects the request before it uses the attempt. The exception handler returns HTTP 429, with a `Retry-After` header when Auth0 sent one. Wait that long, then resend the same request with the same `auth_session`, credential and codes. Check `status_code`, not `code`, because the code depends on which limit was hit.
+- **Any other failure** is raised with the `error` code Auth0 returned, or `passkey_token_error` when the response has no JSON error body.
+
+If the connection drops after Auth0 accepts the final code, or a Post Login Action denies the login, the account may already exist, because Auth0 creates the user before Actions run. A new signup with the same email then fails with `invalid_request`. Show a generic message that offers sign in, without confirming whether the account exists. `invalid_request` also covers invalid input, so don't treat it alone as proof that the account exists.
 
 ### Resending codes
 
@@ -259,6 +273,7 @@ To resend, call the signup challenge again before the credential is created. Eac
 ## 4. Security considerations
 
 - **Rate-limit the signup challenge route.** Each call sends codes, so without a limit the route can be abused to send messages in bulk (SMS pumping). Limit it per IP address and per email address or phone number, for example at your reverse proxy or with a library such as `slowapi`.
+- **Forward a trusted client IP.** Pass `client_ip` to all three methods so Auth0 sees the user's address, not your server's. Auth0 uses it when the **Trust Token Endpoint IP Header** setting is enabled for the application, so a spoofed value lets a caller get around per-IP limits. `request.client.host` reads `X-Forwarded-For` only from the addresses in uvicorn's `--forwarded-allow-ips` (default `127.0.0.1`). Set that to your own proxies, never to `*` when clients can reach the app directly. Never copy a client-supplied header into `client_ip`. Pass an IP address only, because Auth0 can reject any other value.
 - **Treat `auth_session` and verification codes as credentials.** Never log them, and never put them in URLs. Send `Cache-Control: no-store` on responses that carry `auth_session`. `PasskeyError` carries `auth_session` as an attribute, so do not log the error's attributes.
 - **Validate at the route.** Use request models like the ones above: `extra="forbid"`, codes of at most 10 characters, and only the `email` and `phone` keys. The SDK also rejects any other `verification` key with `InvalidArgumentError`.
 - **Keep retry details out of generic error responses.** `register_exception_handlers()` returns only `error` and `message`. Return `auth_session` only from the route that owns the retry, as in section 1.
@@ -269,7 +284,7 @@ With `register_exception_handlers(app)`, unhandled errors from the passkey metho
 
 | Error | HTTP status |
 |---|---|
-| `PasskeyError` with code `too_many_requests` | 429 |
+| `PasskeyError` with `status_code` 429 (rate limited) | 429, with `Retry-After` when Auth0 sent one |
 | Any other `PasskeyError` (for example `invalid_grant`, `invalid_request`, `passkey_challenge_error`, `passkey_token_error`) | 400 |
 | `InvalidArgumentError` | 400 |
 | `OrganizationTokenValidationError` | 400 |

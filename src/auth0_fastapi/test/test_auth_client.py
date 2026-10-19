@@ -1037,7 +1037,7 @@ class TestPasskey:
 
     @pytest.mark.asyncio
     async def test_passkey_signup_challenge_forwards_all_arguments(self, auth_client, mock_request, mock_response):
-        """Test that every signup argument, including delivery_method, reaches the underlying client."""
+        """Test that every signup argument, including delivery_method and client_ip, reaches the underlying client."""
         profile = PasskeyUserProfile(email="new.user@example.com", phone_number="+15551234567")
         store_options = {"request": mock_request, "response": mock_response}
         mock_result = PasskeySignupChallengeResponse(
@@ -1055,6 +1055,7 @@ class TestPasskey:
                 organization="org_abc123",
                 user_metadata={"plan": "free"},
                 delivery_method="voice",
+                client_ip="203.0.113.7",
                 store_options=store_options,
             )
 
@@ -1066,6 +1067,7 @@ class TestPasskey:
                 organization="org_abc123",
                 user_metadata={"plan": "free"},
                 delivery_method="voice",
+                client_ip="203.0.113.7",
                 store_options=store_options,
             )
 
@@ -1083,13 +1085,19 @@ class TestPasskey:
                 organization=None,
                 user_metadata=None,
                 delivery_method=None,
+                client_ip=None,
                 store_options=None,
             )
 
     @pytest.mark.asyncio
     async def test_passkey_signup_challenge_rate_limit_propagates(self, auth_client):
-        """Test that a rate-limited challenge raises PasskeyError with too_many_requests unchanged."""
-        error = PasskeyError(PasskeyErrorCode.TOO_MANY_REQUESTS, "Too many passkey signup requests")
+        """Test that a rate-limited challenge raises PasskeyError with status_code and retry_after unchanged."""
+        error = PasskeyError(
+            PasskeyErrorCode.CHALLENGE_FAILED,
+            "Passkey signup challenge failed with status 429",
+            status_code=429,
+            retry_after=30,
+        )
 
         with patch.object(auth_client.client, 'passkey_signup_challenge', new_callable=AsyncMock) as mock_challenge:
             mock_challenge.side_effect = error
@@ -1098,12 +1106,14 @@ class TestPasskey:
                 await auth_client.passkey_signup_challenge(user_profile=PasskeyUserProfile(email="a@example.com"))
 
             assert exc_info.value is error
+            assert exc_info.value.status_code == 429
+            assert exc_info.value.retry_after == 30
 
     @pytest.mark.asyncio
     async def test_passkey_login_challenge_forwards_arguments_without_username(
         self, auth_client, mock_request, mock_response
     ):
-        """Test that the login challenge forwards connection and organization and never a username."""
+        """Test that the login challenge forwards connection, organization and client_ip and never a username."""
         store_options = {"request": mock_request, "response": mock_response}
         mock_result = PasskeyLoginChallengeResponse(
             auth_session="sess_abc123",
@@ -1116,6 +1126,7 @@ class TestPasskey:
             result = await auth_client.passkey_login_challenge(
                 connection="Username-Password-Authentication",
                 organization="org_abc123",
+                client_ip="203.0.113.7",
                 store_options=store_options,
             )
 
@@ -1123,13 +1134,18 @@ class TestPasskey:
             mock_challenge.assert_called_once_with(
                 connection="Username-Password-Authentication",
                 organization="org_abc123",
+                client_ip="203.0.113.7",
                 store_options=store_options,
             )
 
     @pytest.mark.asyncio
     async def test_passkey_login_challenge_rate_limit_error_propagates(self, auth_client):
-        """Test that a too_many_requests PasskeyError from the login challenge is not swallowed."""
-        error = PasskeyError(PasskeyErrorCode.TOO_MANY_REQUESTS, "Too many requests")
+        """Test that a rate-limited PasskeyError from the login challenge is not swallowed."""
+        error = PasskeyError(
+            PasskeyErrorCode.CHALLENGE_FAILED,
+            "Passkey login challenge failed with status 429",
+            status_code=429,
+        )
 
         with patch.object(auth_client.client, 'passkey_login_challenge', new_callable=AsyncMock) as mock_challenge:
             mock_challenge.side_effect = error
@@ -1138,7 +1154,7 @@ class TestPasskey:
                 await auth_client.passkey_login_challenge(connection="Username-Password-Authentication")
 
             assert exc_info.value is error
-            assert exc_info.value.code == PasskeyErrorCode.TOO_MANY_REQUESTS
+            assert exc_info.value.status_code == 429
 
     @pytest.mark.asyncio
     async def test_signin_with_passkey_forwards_login_assertion(
@@ -1158,6 +1174,7 @@ class TestPasskey:
                 organization="org_abc123",
                 scope="openid profile email",
                 audience="https://api.example.com",
+                client_ip="203.0.113.7",
                 store_options=store_options,
             )
 
@@ -1171,6 +1188,7 @@ class TestPasskey:
                 scope="openid profile email",
                 audience="https://api.example.com",
                 dpop_key=None,
+                client_ip="203.0.113.7",
                 store_options=store_options,
             )
 
@@ -1203,6 +1221,7 @@ class TestPasskey:
                 scope=None,
                 audience=None,
                 dpop_key=None,
+                client_ip=None,
                 store_options=store_options,
             )
 

@@ -375,6 +375,7 @@ class AuthClient:
         organization: Optional[str] = None,
         user_metadata: Optional[dict[str, Any]] = None,
         delivery_method: Optional[PasskeyDeliveryMethod] = None,
+        client_ip: Optional[str] = None,
         store_options: dict = None,
     ) -> PasskeySignupChallengeResponse:
         """
@@ -386,6 +387,7 @@ class AuthClient:
             organization: Organization ID or name (optional).
             user_metadata: Custom metadata stored on the new user (optional).
             delivery_method: Phone verification code channel, "text" or "voice" (optional).
+            client_ip: End user IP address, sent as the auth0-forwarded-for header (optional).
             store_options: Optional options passed to the Transaction and State
                 Store. Only required when using Multiple Custom Domains, where
                 the domain resolver needs the incoming request.
@@ -396,7 +398,8 @@ class AuthClient:
 
         Raises:
             PasskeyError: If the challenge request fails or is rate limited
-                (see PasskeyErrorCode).
+                (status_code 429).
+            InvalidArgumentError: If delivery_method is not "text" or "voice".
         """
         return await self.client.passkey_signup_challenge(
             user_profile=user_profile,
@@ -404,6 +407,7 @@ class AuthClient:
             organization=organization,
             user_metadata=user_metadata,
             delivery_method=delivery_method,
+            client_ip=client_ip,
             store_options=store_options,
         )
 
@@ -411,6 +415,7 @@ class AuthClient:
         self,
         connection: Optional[str] = None,
         organization: Optional[str] = None,
+        client_ip: Optional[str] = None,
         store_options: dict = None,
     ) -> PasskeyLoginChallengeResponse:
         """
@@ -419,6 +424,7 @@ class AuthClient:
         Args:
             connection: Database connection name (optional).
             organization: Organization ID or name (optional).
+            client_ip: End user IP address, sent as the auth0-forwarded-for header (optional).
             store_options: Optional options passed to the Transaction and State
                 Store. Only required when using Multiple Custom Domains, where
                 the domain resolver needs the incoming request.
@@ -428,11 +434,12 @@ class AuthClient:
 
         Raises:
             PasskeyError: If the challenge request fails or is rate limited
-                (see PasskeyErrorCode).
+                (status_code 429).
         """
         return await self.client.passkey_login_challenge(
             connection=connection,
             organization=organization,
+            client_ip=client_ip,
             store_options=store_options,
         )
 
@@ -440,12 +447,13 @@ class AuthClient:
         self,
         auth_session: str,
         authn_response: PasskeyAuthResponse,
-        verification: Optional[dict[str, str]] = None,
+        verification: Optional[dict[str, Optional[str]]] = None,
         connection: Optional[str] = None,
         organization: Optional[str] = None,
         scope: Optional[str] = None,
         audience: Optional[str] = None,
         dpop_key: Optional["jwk.JWK"] = None,
+        client_ip: Optional[str] = None,
         store_options: dict = None,
     ) -> PasskeyLoginResult:
         """
@@ -460,6 +468,7 @@ class AuthClient:
             scope: Space-delimited scopes (optional).
             audience: API audience (optional).
             dpop_key: EC P-256 key to bind the tokens with DPoP (optional).
+            client_ip: End user IP address, sent as the auth0-forwarded-for header (optional).
             store_options: Options passed to the Transaction and State Store.
                 Must include {"request": request, "response": response} so the
                 session cookie can be written on response.
@@ -470,10 +479,10 @@ class AuthClient:
 
         Raises:
             PasskeyError: If the token exchange fails or is rate limited
-                (see PasskeyErrorCode and is_verification_retryable).
+                (status_code 429). See is_verification_retryable.
             MfaRequiredError: If the tenant requires MFA after the passkey sign-in.
             MissingRequiredArgumentError: If auth_session or authn_response is missing.
-            InvalidArgumentError: If verification has a key other than "email" or "phone".
+            InvalidArgumentError: If verification is not a dict keyed by "email" or "phone".
             ConfigurationError: If dpop_key is combined with mTLS.
             ApiError: If the ID token fails validation.
             IssuerValidationError: If the ID token issuer does not match the tenant.
@@ -489,5 +498,6 @@ class AuthClient:
             scope=scope,
             audience=audience,
             dpop_key=dpop_key,
+            client_ip=client_ip,
             store_options=store_options,
         )
