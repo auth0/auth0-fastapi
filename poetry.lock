@@ -80,14 +80,14 @@ trio = ["trio (>=0.32.0)"]
 
 [[package]]
 name = "auth0-server-python"
-version = "1.0.0b14"
+version = "1.0.0b20"
 description = "Auth0 server-side Python SDK"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "auth0_server_python-1.0.0b14-py3-none-any.whl", hash = "sha256:89c539f2bd10321f785944527a16ea1c552562cd0d5a45c6f0bb13c8c44b408d"},
-    {file = "auth0_server_python-1.0.0b14.tar.gz", hash = "sha256:8834c982c8f0466f86080f95d79ce9a0b727ae6c2db0da3e5bd28c736e91333e"},
+    {file = "auth0_server_python-1.0.0b20-py3-none-any.whl", hash = "sha256:2365c6fde8933907dcde658d154ffecae1922233f7873a43391d55edfb05dc33"},
+    {file = "auth0_server_python-1.0.0b20.tar.gz", hash = "sha256:685ef0f0a5db37a4aae9598e98be3ae2044b5a897fb11a5022d68f02169400a4"},
 ]
 
 [package.dependencies]
@@ -1426,4 +1426,4 @@ standard = ["colorama (>=0.4) ; sys_platform == \"win32\"", "httptools (>=0.6.3)
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9"
-content-hash = "4a7b6ce232b6fb707303f9638f5b40f57a8b71b90eb47fa8ec18dd87bb5c001d"
+content-hash = "7da1352426949a93a93bd2822b031fa750d1e36b4d2892b27bcc28b4dbabab51"
