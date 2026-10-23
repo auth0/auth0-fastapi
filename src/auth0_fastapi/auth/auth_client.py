@@ -1,5 +1,5 @@
 # Imported from auth0-server-python
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from auth0_server_python.auth_server.server_client import ServerClient
 from auth0_server_python.auth_types import (
@@ -9,6 +9,12 @@ from auth0_server_python.auth_types import (
     LoginWithCustomTokenExchangeOptions,
     LoginWithCustomTokenExchangeResult,
     LogoutOptions,
+    PasskeyAuthResponse,
+    PasskeyDeliveryMethod,
+    PasskeyLoginChallengeResponse,
+    PasskeyLoginResult,
+    PasskeySignupChallengeResponse,
+    PasskeyUserProfile,
     SessionTransferTokenResult,
     StartInteractiveLoginOptions,
     TokenExchangeResponse,
@@ -18,6 +24,9 @@ from fastapi import HTTPException, Request, Response, status
 from auth0_fastapi.config import Auth0Config
 from auth0_fastapi.stores.cookie_transaction_store import CookieTransactionStore
 from auth0_fastapi.stores.stateless_state_store import StatelessStateStore
+
+if TYPE_CHECKING:
+    from jwcrypto import jwk
 
 
 class AuthClient:
@@ -357,4 +366,138 @@ class AuthClient:
         """
         return self.client.build_session_transfer_redirect(
             target_login_url, result, organization=organization
+        )
+
+    async def passkey_signup_challenge(
+        self,
+        user_profile: Optional[PasskeyUserProfile] = None,
+        connection: Optional[str] = None,
+        organization: Optional[str] = None,
+        user_metadata: Optional[dict[str, Any]] = None,
+        delivery_method: Optional[PasskeyDeliveryMethod] = None,
+        client_ip: Optional[str] = None,
+        store_options: dict = None,
+    ) -> PasskeySignupChallengeResponse:
+        """
+        Requests a passkey registration challenge to start a signup.
+
+        Args:
+            user_profile: Profile of the new user (email, phone_number, name).
+            connection: Database connection name (optional).
+            organization: Organization ID or name (optional).
+            user_metadata: Custom metadata stored on the new user (optional).
+            delivery_method: Phone verification code channel, "text" or "voice" (optional).
+            client_ip: End user IP address, sent as the auth0-forwarded-for header (optional).
+            store_options: Optional options passed to the Transaction and State
+                Store. Only required when using Multiple Custom Domains, where
+                the domain resolver needs the incoming request.
+
+        Returns:
+            The PasskeySignupChallengeResponse (auth_session, authn_params_public_key,
+            verification_required).
+
+        Raises:
+            PasskeyError: If the challenge request fails or is rate limited
+                (status_code 429).
+            InvalidArgumentError: If delivery_method is not "text" or "voice".
+        """
+        return await self.client.passkey_signup_challenge(
+            user_profile=user_profile,
+            connection=connection,
+            organization=organization,
+            user_metadata=user_metadata,
+            delivery_method=delivery_method,
+            client_ip=client_ip,
+            store_options=store_options,
+        )
+
+    async def passkey_login_challenge(
+        self,
+        connection: Optional[str] = None,
+        organization: Optional[str] = None,
+        client_ip: Optional[str] = None,
+        store_options: dict = None,
+    ) -> PasskeyLoginChallengeResponse:
+        """
+        Requests a passkey assertion challenge to start a login.
+
+        Args:
+            connection: Database connection name (optional).
+            organization: Organization ID or name (optional).
+            client_ip: End user IP address, sent as the auth0-forwarded-for header (optional).
+            store_options: Optional options passed to the Transaction and State
+                Store. Only required when using Multiple Custom Domains, where
+                the domain resolver needs the incoming request.
+
+        Returns:
+            The PasskeyLoginChallengeResponse (auth_session, authn_params_public_key).
+
+        Raises:
+            PasskeyError: If the challenge request fails or is rate limited
+                (status_code 429).
+        """
+        return await self.client.passkey_login_challenge(
+            connection=connection,
+            organization=organization,
+            client_ip=client_ip,
+            store_options=store_options,
+        )
+
+    async def signin_with_passkey(
+        self,
+        auth_session: str,
+        authn_response: PasskeyAuthResponse,
+        verification: Optional[dict[str, Optional[str]]] = None,
+        connection: Optional[str] = None,
+        organization: Optional[str] = None,
+        scope: Optional[str] = None,
+        audience: Optional[str] = None,
+        dpop_key: Optional["jwk.JWK"] = None,
+        client_ip: Optional[str] = None,
+        store_options: dict = None,
+    ) -> PasskeyLoginResult:
+        """
+        Exchanges a passkey credential for tokens and establishes a session.
+
+        Args:
+            auth_session: The auth_session from the challenge, or from a retryable PasskeyError.
+            authn_response: The credential from navigator.credentials.create() or .get().
+            verification: Signup verification codes keyed by "email" or "phone" (optional).
+            connection: Database connection name (optional).
+            organization: Organization ID or name (optional).
+            scope: Space-delimited scopes (optional).
+            audience: API audience (optional).
+            dpop_key: EC P-256 key to bind the tokens with DPoP (optional).
+            client_ip: End user IP address, sent as the auth0-forwarded-for header (optional).
+            store_options: Options passed to the Transaction and State Store.
+                Must include {"request": request, "response": response} so the
+                session cookie can be written on response.
+
+        Returns:
+            The PasskeyLoginResult containing the session state (including the
+            resulting user).
+
+        Raises:
+            PasskeyError: If the token exchange fails or is rate limited
+                (status_code 429). See is_verification_retryable.
+            MfaRequiredError: If the tenant requires MFA after the passkey sign-in.
+            MissingRequiredArgumentError: If auth_session or authn_response is missing.
+            InvalidArgumentError: If verification is not a dict keyed by "email" or "phone".
+            ConfigurationError: If dpop_key is combined with mTLS.
+            ApiError: If the ID token fails validation.
+            IssuerValidationError: If the ID token issuer does not match the tenant.
+            OrganizationTokenValidationError: If the ID token's org claim does not match.
+            EnterpriseConnectError: If the client is configured for Enterprise Connect.
+        """
+        return await self.client.signin_with_passkey(
+            auth_session=auth_session,
+            authn_response=authn_response,
+            verification=verification,
+            connection=connection,
+            organization=organization,
+            scope=scope,
+            audience=audience,
+            dpop_key=dpop_key,
+            client_ip=client_ip,
+            store_options=store_options,
         )

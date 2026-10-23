@@ -11,6 +11,8 @@ from auth0_server_python.error import (
     IssuerValidationError,
     MissingRequiredArgumentError,
     MissingTransactionError,
+    PasskeyError,
+    PasskeyErrorCode,
 )
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -33,6 +35,7 @@ def auth0_exception_handler(request: Request, exc: Auth0Error):
     """
     # Set a default status code
     status_code = 400
+    headers = None
 
     if isinstance(exc, MissingTransactionError):
         status_code = 404  # Not Found
@@ -48,9 +51,14 @@ def auth0_exception_handler(request: Request, exc: Auth0Error):
         status_code = 400  # Bad Request
     elif isinstance(exc, AccessTokenForConnectionError):
         status_code = 400  # Bad Request
+    elif isinstance(exc, PasskeyError) and exc.status_code == 429:
+        status_code = 429
+        if exc.retry_after is not None:
+            headers = {"Retry-After": str(exc.retry_after)}
 
     return JSONResponse(
         status_code=status_code,
+        headers=headers,
         content={
             "error": getattr(exc, "code", "auth_error"),
             "message": exc.message or "An authentication error occurred.",

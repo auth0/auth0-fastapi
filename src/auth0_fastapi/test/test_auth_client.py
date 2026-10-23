@@ -8,10 +8,22 @@ from auth0_server_python.auth_types import (
     CustomTokenExchangeOptions,
     LoginWithCustomTokenExchangeOptions,
     LoginWithCustomTokenExchangeResult,
+    PasskeyAuthResponse,
+    PasskeyLoginChallengeResponse,
+    PasskeyLoginResult,
+    PasskeyPublicKeyOptions,
+    PasskeySignupChallengeResponse,
+    PasskeyUserProfile,
     SessionTransferTokenResult,
     TokenExchangeResponse,
 )
-from auth0_server_python.error import CustomTokenExchangeError, CustomTokenExchangeErrorCode, InvalidArgumentError
+from auth0_server_python.error import (
+    CustomTokenExchangeError,
+    CustomTokenExchangeErrorCode,
+    InvalidArgumentError,
+    PasskeyError,
+    PasskeyErrorCode,
+)
 from fastapi import HTTPException, Request, Response
 
 from auth0_fastapi.auth.auth_client import AuthClient
@@ -51,6 +63,33 @@ def mock_response():
 def auth_client(auth_config):
     """Fixture providing an AuthClient instance."""
     return AuthClient(auth_config)
+
+
+@pytest.fixture
+def passkey_authn_response():
+    """Fixture providing a WebAuthn registration credential as the browser serializes it."""
+    return PasskeyAuthResponse(
+        id="cred_abc123",
+        rawId="cred_abc123",
+        type="public-key",
+        response={"clientDataJSON": "client-data", "attestationObject": "attestation"},
+    )
+
+
+@pytest.fixture
+def passkey_login_authn_response():
+    """Fixture providing a WebAuthn assertion credential as the browser serializes it."""
+    return PasskeyAuthResponse(
+        id="cred_abc123",
+        rawId="cred_abc123",
+        type="public-key",
+        response={
+            "clientDataJSON": "client-data",
+            "authenticatorData": "authenticator-data",
+            "signature": "signature",
+            "userHandle": "user-handle",
+        },
+    )
 
 
 class TestAuthClientInitialization:
@@ -990,4 +1029,269 @@ class TestSessionTransferToken:
                     subject_token="customer-proof-token",
                     subject_token_type="urn:acme:customer-session",
                     organization="   ",
+                )
+
+
+class TestPasskey:
+    """Test passkey signup, login and identifier verification pass-through."""
+
+    @pytest.mark.asyncio
+    async def test_passkey_signup_challenge_forwards_all_arguments(self, auth_client, mock_request, mock_response):
+        """Test that every signup argument, including delivery_method and client_ip, reaches the underlying client."""
+        profile = PasskeyUserProfile(email="new.user@example.com", phone_number="+15551234567")
+        store_options = {"request": mock_request, "response": mock_response}
+        mock_result = PasskeySignupChallengeResponse(
+            auth_session="sess_abc123",
+            authn_params_public_key=PasskeyPublicKeyOptions(challenge="challenge", timeout=900000),
+            verification_required=["email", "phone"],
+        )
+
+        with patch.object(auth_client.client, 'passkey_signup_challenge', new_callable=AsyncMock) as mock_challenge:
+            mock_challenge.return_value = mock_result
+
+            result = await auth_client.passkey_signup_challenge(
+                user_profile=profile,
+                connection="Username-Password-Authentication",
+                organization="org_abc123",
+                user_metadata={"plan": "free"},
+                delivery_method="voice",
+                client_ip="203.0.113.7",
+                store_options=store_options,
+            )
+
+            assert result is mock_result
+            assert result.verification_required == ["email", "phone"]
+            mock_challenge.assert_called_once_with(
+                user_profile=profile,
+                connection="Username-Password-Authentication",
+                organization="org_abc123",
+                user_metadata={"plan": "free"},
+                delivery_method="voice",
+                client_ip="203.0.113.7",
+                store_options=store_options,
+            )
+
+    @pytest.mark.asyncio
+    async def test_passkey_signup_challenge_defaults_to_none(self, auth_client):
+        """Test that optional signup arguments default to None so the SDK omits them from the request."""
+        profile = PasskeyUserProfile(email="new.user@example.com")
+
+        with patch.object(auth_client.client, 'passkey_signup_challenge', new_callable=AsyncMock) as mock_challenge:
+            await auth_client.passkey_signup_challenge(user_profile=profile)
+
+            mock_challenge.assert_called_once_with(
+                user_profile=profile,
+                connection=None,
+                organization=None,
+                user_metadata=None,
+                delivery_method=None,
+                client_ip=None,
+                store_options=None,
+            )
+
+    @pytest.mark.asyncio
+    async def test_passkey_signup_challenge_rate_limit_propagates(self, auth_client):
+        """Test that a rate-limited challenge raises PasskeyError with status_code and retry_after unchanged."""
+        error = PasskeyError(
+            PasskeyErrorCode.CHALLENGE_FAILED,
+            "Passkey signup challenge failed with status 429",
+            status_code=429,
+            retry_after=30,
+        )
+
+        with patch.object(auth_client.client, 'passkey_signup_challenge', new_callable=AsyncMock) as mock_challenge:
+            mock_challenge.side_effect = error
+
+            with pytest.raises(PasskeyError) as exc_info:
+                await auth_client.passkey_signup_challenge(user_profile=PasskeyUserProfile(email="a@example.com"))
+
+            assert exc_info.value is error
+            assert exc_info.value.status_code == 429
+            assert exc_info.value.retry_after == 30
+
+    @pytest.mark.asyncio
+    async def test_passkey_login_challenge_forwards_arguments_without_username(
+        self, auth_client, mock_request, mock_response
+    ):
+        """Test that the login challenge forwards connection, organization and client_ip and never a username."""
+        store_options = {"request": mock_request, "response": mock_response}
+        mock_result = PasskeyLoginChallengeResponse(
+            auth_session="sess_abc123",
+            authn_params_public_key=PasskeyPublicKeyOptions(challenge="challenge"),
+        )
+
+        with patch.object(auth_client.client, 'passkey_login_challenge', new_callable=AsyncMock) as mock_challenge:
+            mock_challenge.return_value = mock_result
+
+            result = await auth_client.passkey_login_challenge(
+                connection="Username-Password-Authentication",
+                organization="org_abc123",
+                client_ip="203.0.113.7",
+                store_options=store_options,
+            )
+
+            assert result is mock_result
+            mock_challenge.assert_called_once_with(
+                connection="Username-Password-Authentication",
+                organization="org_abc123",
+                client_ip="203.0.113.7",
+                store_options=store_options,
+            )
+
+    @pytest.mark.asyncio
+    async def test_passkey_login_challenge_rate_limit_error_propagates(self, auth_client):
+        """Test that a rate-limited PasskeyError from the login challenge is not swallowed."""
+        error = PasskeyError(
+            PasskeyErrorCode.CHALLENGE_FAILED,
+            "Passkey login challenge failed with status 429",
+            status_code=429,
+        )
+
+        with patch.object(auth_client.client, 'passkey_login_challenge', new_callable=AsyncMock) as mock_challenge:
+            mock_challenge.side_effect = error
+
+            with pytest.raises(PasskeyError) as exc_info:
+                await auth_client.passkey_login_challenge(connection="Username-Password-Authentication")
+
+            assert exc_info.value is error
+            assert exc_info.value.status_code == 429
+
+    @pytest.mark.asyncio
+    async def test_signin_with_passkey_forwards_login_assertion(
+        self, auth_client, mock_request, mock_response, passkey_login_authn_response
+    ):
+        """Test that a login assertion and all sign-in arguments reach the underlying client without verification."""
+        store_options = {"request": mock_request, "response": mock_response}
+        mock_result = PasskeyLoginResult(state_data={"user": {"sub": "auth0|abc123"}})
+
+        with patch.object(auth_client.client, 'signin_with_passkey', new_callable=AsyncMock) as mock_signin:
+            mock_signin.return_value = mock_result
+
+            result = await auth_client.signin_with_passkey(
+                auth_session="sess_abc123",
+                authn_response=passkey_login_authn_response,
+                connection="Username-Password-Authentication",
+                organization="org_abc123",
+                scope="openid profile email",
+                audience="https://api.example.com",
+                client_ip="203.0.113.7",
+                store_options=store_options,
+            )
+
+            assert result is mock_result
+            mock_signin.assert_called_once_with(
+                auth_session="sess_abc123",
+                authn_response=passkey_login_authn_response,
+                verification=None,
+                connection="Username-Password-Authentication",
+                organization="org_abc123",
+                scope="openid profile email",
+                audience="https://api.example.com",
+                dpop_key=None,
+                client_ip="203.0.113.7",
+                store_options=store_options,
+            )
+
+    @pytest.mark.asyncio
+    async def test_signin_with_passkey_forwards_verification_codes(
+        self, auth_client, mock_request, mock_response, passkey_authn_response
+    ):
+        """Test that verification codes and all sign-in arguments reach the underlying client."""
+        store_options = {"request": mock_request, "response": mock_response}
+        mock_result = PasskeyLoginResult(state_data={"user": {"sub": "auth0|abc123"}})
+
+        with patch.object(auth_client.client, 'signin_with_passkey', new_callable=AsyncMock) as mock_signin:
+            mock_signin.return_value = mock_result
+
+            result = await auth_client.signin_with_passkey(
+                auth_session="sess_abc123",
+                authn_response=passkey_authn_response,
+                verification={"email": "123456", "phone": "654321"},
+                connection="Username-Password-Authentication",
+                store_options=store_options,
+            )
+
+            assert result is mock_result
+            mock_signin.assert_called_once_with(
+                auth_session="sess_abc123",
+                authn_response=passkey_authn_response,
+                verification={"email": "123456", "phone": "654321"},
+                connection="Username-Password-Authentication",
+                organization=None,
+                scope=None,
+                audience=None,
+                dpop_key=None,
+                client_ip=None,
+                store_options=store_options,
+            )
+
+    @pytest.mark.asyncio
+    async def test_signin_with_passkey_forwards_dpop_key(self, auth_client, passkey_authn_response):
+        """Test that dpop_key is forwarded as the same object so token binding is preserved."""
+        dpop_key = Mock()
+
+        with patch.object(auth_client.client, 'signin_with_passkey', new_callable=AsyncMock) as mock_signin:
+            await auth_client.signin_with_passkey(
+                auth_session="sess_abc123",
+                authn_response=passkey_authn_response,
+                dpop_key=dpop_key,
+            )
+
+            assert mock_signin.call_args.kwargs["dpop_key"] is dpop_key
+            assert mock_signin.call_args.kwargs["verification"] is None
+
+    @pytest.mark.asyncio
+    async def test_signin_with_passkey_retryable_error_propagates_unchanged(self, auth_client, passkey_authn_response):
+        """Test that a wrong-code PasskeyError keeps auth_session and verification_required for the retry."""
+        error = PasskeyError(
+            PasskeyErrorCode.INVALID_GRANT,
+            "Invalid or expired session",
+            auth_session="sess_abc123",
+            verification_required=["email"],
+        )
+
+        with patch.object(auth_client.client, 'signin_with_passkey', new_callable=AsyncMock) as mock_signin:
+            mock_signin.side_effect = error
+
+            with pytest.raises(PasskeyError) as exc_info:
+                await auth_client.signin_with_passkey(
+                    auth_session="sess_abc123",
+                    authn_response=passkey_authn_response,
+                    verification={"email": "000000"},
+                )
+
+            assert exc_info.value is error
+            assert exc_info.value.is_verification_retryable is True
+            assert exc_info.value.verification_required == ["email"]
+
+    @pytest.mark.asyncio
+    async def test_signin_with_passkey_terminal_error_is_not_retryable(self, auth_client, passkey_authn_response):
+        """Test that invalid_grant without auth_session surfaces as terminal."""
+        error = PasskeyError(PasskeyErrorCode.INVALID_GRANT, "Invalid or expired session")
+
+        with patch.object(auth_client.client, 'signin_with_passkey', new_callable=AsyncMock) as mock_signin:
+            mock_signin.side_effect = error
+
+            with pytest.raises(PasskeyError) as exc_info:
+                await auth_client.signin_with_passkey(
+                    auth_session="sess_abc123",
+                    authn_response=passkey_authn_response,
+                    verification={"email": "000000"},
+                )
+
+            assert exc_info.value.is_verification_retryable is False
+
+    @pytest.mark.asyncio
+    async def test_signin_with_passkey_invalid_verification_key_propagates(self, auth_client, passkey_authn_response):
+        """Test that the underlying InvalidArgumentError for an unknown verification key is not swallowed."""
+        with patch.object(auth_client.client, 'signin_with_passkey', new_callable=AsyncMock) as mock_signin:
+            mock_signin.side_effect = InvalidArgumentError(
+                "verification", "verification keys must be 'email' or 'phone'"
+            )
+
+            with pytest.raises(InvalidArgumentError):
+                await auth_client.signin_with_passkey(
+                    auth_session="sess_abc123",
+                    authn_response=passkey_authn_response,
+                    verification={"phone_number": "123456"},
                 )
