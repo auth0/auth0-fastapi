@@ -223,7 +223,33 @@ async def passkey_login_challenge(request: Request, response: Response):
     }
 ```
 
-In the browser, call `navigator.credentials.get({ publicKey: PublicKeyCredential.parseRequestOptionsFromJSON(challenge.public_key) })`. Then post to `/passkey/signin` with `response` holding `clientDataJSON`, `authenticatorData`, `signature` and `userHandle`. Identifier verification does not apply to login.
+In the browser, get the credential with `navigator.credentials.get()` and post it to the same `/passkey/signin` route as signup:
+
+```javascript
+function toLoginResponse(credential) {
+  const json = credential.toJSON();
+  const { clientDataJSON, authenticatorData, signature, userHandle } = json.response;
+  return {
+    id: json.id,
+    rawId: json.rawId,
+    type: json.type,
+    authenticatorAttachment: json.authenticatorAttachment,
+    response: { clientDataJSON, authenticatorData, signature, ...(userHandle ? { userHandle } : {}) },
+  };
+}
+
+const challenge = await postJson("/passkey/login/challenge");
+
+const credential = await navigator.credentials.get({
+  publicKey: PublicKeyCredential.parseRequestOptionsFromJSON(challenge.public_key),
+});
+await postJson("/passkey/signin", {
+  auth_session: challenge.auth_session,
+  authn_response: toLoginResponse(credential),
+});
+```
+
+`userHandle` can be `null`. The helper leaves it out in that case, and the route drops a `null` value as well. Identifier verification does not apply to login.
 
 ## 3. Identifier verification (optional)
 
