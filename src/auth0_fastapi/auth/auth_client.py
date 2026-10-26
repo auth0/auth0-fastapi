@@ -483,11 +483,9 @@ class AuthClient:
             MfaRequiredError: If the tenant requires MFA after the passkey sign-in.
             MissingRequiredArgumentError: If auth_session or authn_response is missing.
             InvalidArgumentError: If verification is not a dict keyed by "email" or "phone".
-            ConfigurationError: If dpop_key is combined with mTLS.
             ApiError: If the ID token fails validation.
             IssuerValidationError: If the ID token issuer does not match the tenant.
             OrganizationTokenValidationError: If the ID token's org claim does not match.
-            EnterpriseConnectError: If the client is configured for Enterprise Connect.
         """
         return await self.client.signin_with_passkey(
             auth_session=auth_session,
