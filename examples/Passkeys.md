@@ -423,7 +423,7 @@ Add `dpop_key=dpop_key` to the sign-in call in section 1. Then keep these points
 - Generate one key per user session and keep it on the server, next to the session, in a store you control. Do not send it to the browser or put it in a cookie.
 - The private key is a secret, so never log it. The [auth0-server-python passkey guide](https://github.com/auth0/auth0-server-python/blob/main/examples/Passkeys.md#3-dpop-bound-passkey-tokens-optional) covers key storage.
 - If the tenant also requires MFA, pass the same key to `mfa.verify()` through its `dpop_key` argument.
-- `get_access_token()` takes no `dpop_key`, so it sends no DPoP proof when it refreshes a token. Test the refresh path with DPoP-bound tokens before you rely on it.
+- Auth0 requires a DPoP proof made with the same key on a refresh request for DPoP-bound tokens ([Handle token refresh with DPoP](https://auth0.com/docs/secure/sender-constraining/demonstrating-proof-of-possession-dpop#step-6-handle-token-refresh-with-dpop)). `get_access_token()` takes no `dpop_key`, so it sends no proof. Do not rely on it to refresh a session whose tokens are DPoP-bound.
 - The SDK raises a `PasskeyError` when the token type does not match whether you passed a key, so a token is never stored without the key it needs.
 
 ## Additional Resources
