@@ -270,32 +270,34 @@ Enable identifier verification for email, phone, or both on your database connec
 3. Create the credential, then post it with the codes to `/passkey/signin`.
 
 ```javascript
-const challenge = await postJson("/passkey/signup/challenge", { email, phone_number, delivery_method: "text" });
+async function signUpWithPasskey(email, phone_number) {
+  const challenge = await postJson("/passkey/signup/challenge", { email, phone_number, delivery_method: "text" });
 
-let verification = challenge.verification_required
-  ? await promptForCodes(challenge.verification_required)
-  : undefined;
+  let verification = challenge.verification_required
+    ? await promptForCodes(challenge.verification_required)
+    : undefined;
 
-const credential = await navigator.credentials.create({
-  publicKey: PublicKeyCredential.parseCreationOptionsFromJSON(challenge.public_key),
-});
-const authnResponse = toAuthnResponse(credential);
-
-let authSession = challenge.auth_session;
-for (let attempt = 0; attempt < 3; attempt++) {
-  const res = await fetch("/passkey/signin", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ auth_session: authSession, authn_response: authnResponse, verification }),
+  const credential = await navigator.credentials.create({
+    publicKey: PublicKeyCredential.parseCreationOptionsFromJSON(challenge.public_key),
   });
-  if (res.ok) return res.json();
+  const authnResponse = toAuthnResponse(credential);
 
-  const err = await res.json();
-  if (err.error !== "verification_retry") throw err;
-  authSession = err.auth_session;
-  verification = await promptForCodes(err.verification_required);
+  let authSession = challenge.auth_session;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch("/passkey/signin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ auth_session: authSession, authn_response: authnResponse, verification }),
+    });
+    if (res.ok) return res.json();
+
+    const err = await res.json();
+    if (err.error !== "verification_retry") throw err;
+    authSession = err.auth_session;
+    verification = await promptForCodes(err.verification_required);
+  }
+  throw new Error("Too many attempts. Start the signup again.");
 }
-throw new Error("Too many attempts. Start the signup again.");
 ```
 
 `promptForCodes` stands for your app's UI that asks the user for a code per listed identifier and returns them keyed by `email` or `phone`. `toAuthnResponse` is defined in section 1, step 2.
