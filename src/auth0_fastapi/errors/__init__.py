@@ -1,3 +1,5 @@
+from typing import Optional
+
 #Imported from auth0-server-python
 from auth0_server_python.error import (
     AccessTokenError,
@@ -28,6 +30,15 @@ class ConfigurationError(Auth0Error):
         super().__init__(message or "An invalid configuration was provided.")
         self.name = "ConfigurationError"
 
+def _passkey_error_response(exc: PasskeyError) -> tuple[int, Optional[dict[str, str]]]:
+    """Return the HTTP status and headers for a PasskeyError, relaying the status Auth0 returned."""
+    if exc.status_code == 429:
+        headers = {"Retry-After": str(exc.retry_after)} if exc.retry_after is not None else None
+        return 429, headers
+    if exc.status_code is not None and 400 <= exc.status_code <= 599:
+        return exc.status_code, None
+    return 400, None
+
 def auth0_exception_handler(request: Request, exc: Auth0Error):
     """
     Exception handler for Auth0 SDK errors.
@@ -51,10 +62,8 @@ def auth0_exception_handler(request: Request, exc: Auth0Error):
         status_code = 400  # Bad Request
     elif isinstance(exc, AccessTokenForConnectionError):
         status_code = 400  # Bad Request
-    elif isinstance(exc, PasskeyError) and exc.status_code == 429:
-        status_code = 429
-        if exc.retry_after is not None:
-            headers = {"Retry-After": str(exc.retry_after)}
+    elif isinstance(exc, PasskeyError):
+        status_code, headers = _passkey_error_response(exc)
 
     return JSONResponse(
         status_code=status_code,

@@ -349,13 +349,16 @@ With `register_exception_handlers(app)`, unhandled errors from the passkey metho
 | Error | HTTP status |
 |---|---|
 | `PasskeyError` with `status_code` 429 (rate limited) | 429, with `Retry-After` when Auth0 sent one |
-| Any other `PasskeyError` (for example `invalid_grant`, `invalid_request`, `passkey_challenge_error`, `passkey_token_error`) | 400 |
+| Any other `PasskeyError` that carries an Auth0 `status_code` | The status Auth0 returned, for example 400, 401, 403 or 503 |
+| `PasskeyError` with no Auth0 HTTP status (for example a network failure) | 400 |
 | `InvalidArgumentError` | 400 |
 | `OrganizationTokenValidationError` | 400 |
 | `MissingRequiredArgumentError` | 422 |
 | `MfaRequiredError`, when the route does not catch it | 401 |
 | `IssuerValidationError` | 401 |
 | `ApiError` (ID token validation) | 502 |
+
+The `PasskeyError` status is Auth0's own, so a `401` or `403` from Auth0 (for example when it rejects the client) reaches the browser as that status. If a proxy in front of your app replaces 5xx responses with its own page, handle a non-JSON error body in the browser.
 
 ### Completing MFA
 

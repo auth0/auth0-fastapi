@@ -1,3 +1,4 @@
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -66,13 +67,49 @@ class TestPasskeyErrorHandling:
         assert res.json() == {"error": "invalid_grant", "message": "Invalid or expired session"}
         assert "sess_abc123" not in res.text
 
-    def test_other_passkey_errors_map_to_400(self):
-        """Test that non rate-limit passkey failures keep the default 400."""
+    @pytest.mark.parametrize("auth0_status", [400, 401, 403, 404, 500, 502, 503])
+    def test_passkey_error_relays_the_status_auth0_returned(self, auth0_status):
+        """Test that a non rate-limit PasskeyError keeps the status Auth0 returned."""
         client = _client_raising(
-            PasskeyError(PasskeyErrorCode.TOKEN_EXCHANGE_FAILED, "Passkey token exchange failed", status_code=403)
+            PasskeyError(
+                PasskeyErrorCode.TOKEN_EXCHANGE_FAILED,
+                "Passkey token exchange failed",
+                status_code=auth0_status,
+            )
+        )
+
+        res = client.get("/raise")
+
+        assert res.status_code == auth0_status
+        assert res.json() == {"error": "passkey_token_error", "message": "Passkey token exchange failed"}
+        assert "Retry-After" not in res.headers
+
+    def test_passkey_error_without_http_status_maps_to_400(self):
+        """Test that a PasskeyError with no Auth0 response keeps the default 400."""
+        client = _client_raising(
+            PasskeyError(
+                PasskeyErrorCode.CHALLENGE_FAILED,
+                "Passkey login challenge failed",
+                ConnectionError("connection refused"),
+            )
         )
 
         res = client.get("/raise")
 
         assert res.status_code == 400
-        assert res.json()["error"] == "passkey_token_error"
+        assert res.json()["error"] == "passkey_challenge_error"
+
+    @pytest.mark.parametrize("auth0_status", [200, 302, 600])
+    def test_passkey_error_with_a_non_error_status_maps_to_400(self, auth0_status):
+        """Test that only 400 to 599 is relayed, so a stray 2xx or 3xx cannot reach the browser."""
+        client = _client_raising(
+            PasskeyError(
+                PasskeyErrorCode.TOKEN_EXCHANGE_FAILED,
+                "Passkey token exchange failed",
+                status_code=auth0_status,
+            )
+        )
+
+        res = client.get("/raise")
+
+        assert res.status_code == 400
