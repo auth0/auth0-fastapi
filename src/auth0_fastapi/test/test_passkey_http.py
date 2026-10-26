@@ -86,10 +86,10 @@ def mfa_required_response():
     })
 
 
-def tokens_response(mock, token_type="Bearer", **claims):
+def tokens_response(mock, scheme="Bearer", **claims):
     return httpx.Response(200, json={
         "access_token": "access-token",
-        "token_type": token_type,
+        "token_type": scheme,
         "expires_in": 3600,
         "refresh_token": "refresh-token",
         "scope": SCOPE,
@@ -367,7 +367,7 @@ class TestPasskeyHttp:
     async def test_signin_with_passkey_dpop_key_sends_a_proof_and_rejects_a_bearer_token(self, auth_client, auth0):
         """Test that dpop_key adds the DPoP header and a non-DPoP token response is refused."""
         dpop_key = jwk.JWK.generate(kty="EC", crv="P-256")
-        auth0.token_responses.append(tokens_response(auth0, token_type="Bearer"))
+        auth0.token_responses.append(tokens_response(auth0, scheme="Bearer"))
 
         with pytest.raises(PasskeyError):
             await auth_client.signin_with_passkey(
