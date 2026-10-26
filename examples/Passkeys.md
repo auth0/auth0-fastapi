@@ -21,6 +21,7 @@ The methods are programmatic. The SDK does not mount passkey routes. You add the
 - [3. Identifier verification (optional)](#3-identifier-verification-optional)
 - [4. Security considerations](#4-security-considerations)
 - [5. Error Handling](#5-error-handling)
+- [6. Organizations and DPoP (optional)](#6-organizations-and-dpop-optional)
 
 ## How the flow works
 
@@ -386,7 +387,44 @@ Some factors need a call to `mfa.challenge_authenticator()` before `verify()`, a
 
 MFA on a passkey login needs the default cookie state store for now. `StatefulStateStore` cannot save the pending MFA state, so the sign-in fails with a generic error before `MfaRequiredError` reaches your route.
 
-To bind the issued tokens with DPoP, pass `dpop_key` to `signin_with_passkey()`. See the [auth0-server-python passkey guide](https://github.com/auth0/auth0-server-python/blob/main/examples/Passkeys.md#3-dpop-bound-passkey-tokens-optional).
+## 6. Organizations and DPoP (optional)
+
+### Organizations
+
+To sign users up and in within an organization, pass the same `organization` (ID or name) to the signup challenge, the login challenge and `signin_with_passkey()`. Your database connection must be enabled for the organization.
+
+Define the organization next to `CONNECTION` and add it to the signup route:
+
+```diff
+ CONNECTION = "Username-Password-Authentication"
++ORGANIZATION = "org_abc123"
+...
+     challenge = await auth_client.passkey_signup_challenge(
+         user_profile=PasskeyUserProfile(email=body.email, phone_number=body.phone_number),
+         connection=CONNECTION,
++        organization=ORGANIZATION,
+         delivery_method=body.delivery_method,
+```
+
+Add `organization=ORGANIZATION` to the login challenge and sign-in calls in the same way. The sign-in call matters most. With `organization` set, `signin_with_passkey()` checks the ID token and raises `OrganizationTokenValidationError` when the organization claim is missing or different, or when no ID token comes back. A signup that did not end up in the organization then fails instead of creating a session outside it. The exception handler returns 400 for that error.
+
+### DPoP
+
+Pass a `dpop_key` to `signin_with_passkey()` to get DPoP-bound tokens. The tokens work only with that key, so you need the same key for every later call that uses them.
+
+```python
+from jwcrypto import jwk
+
+dpop_key = jwk.JWK.generate(kty="EC", crv="P-256")
+```
+
+Add `dpop_key=dpop_key` to the sign-in call in section 1. Then keep these points in mind:
+
+- Generate one key per user session and keep it on the server, next to the session, in a store you control. Do not send it to the browser or put it in a cookie.
+- The private key is a secret, so never log it. The [auth0-server-python passkey guide](https://github.com/auth0/auth0-server-python/blob/main/examples/Passkeys.md#3-dpop-bound-passkey-tokens-optional) covers key storage.
+- If the tenant also requires MFA, pass the same key to `mfa.verify()` through its `dpop_key` argument.
+- `get_access_token()` takes no `dpop_key`, so it sends no DPoP proof when it refreshes a token. Test the refresh path with DPoP-bound tokens before you rely on it.
+- The SDK raises a `PasskeyError` when the token type does not match whether you passed a key, so a token is never stored without the key it needs.
 
 ## Additional Resources
 
