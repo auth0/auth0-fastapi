@@ -349,7 +349,8 @@ With `register_exception_handlers(app)`, unhandled errors from the passkey metho
 | Error | HTTP status |
 |---|---|
 | `PasskeyError` with `status_code` 429 (rate limited) | 429, with `Retry-After` when Auth0 sent one |
-| Any other `PasskeyError` (for example `invalid_grant`, `invalid_request`, `passkey_challenge_error`, `passkey_token_error`) | 400 |
+| `PasskeyError` from an Auth0 4xx response (for example `invalid_grant`, `invalid_request`) | 400 |
+| `PasskeyError` from an Auth0 5xx response, or with no HTTP response at all (a network failure or an unreadable body) | 502 |
 | `InvalidArgumentError` | 400 |
 | `OrganizationTokenValidationError` | 400 |
 | `MissingRequiredArgumentError` | 422 |
