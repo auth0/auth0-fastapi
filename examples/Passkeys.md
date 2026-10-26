@@ -72,9 +72,27 @@ class VerificationCodes(BaseModel):
     phone: Optional[str] = Field(None, max_length=10)
 
 
+class AssertionData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    clientDataJSON: str = Field(max_length=2048)
+    attestationObject: Optional[str] = Field(None, max_length=4096)
+    authenticatorData: Optional[str] = Field(None, max_length=2048)
+    signature: Optional[str] = Field(None, max_length=2048)
+    userHandle: Optional[str] = Field(None, max_length=2048)
+
+
+class AuthnResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(max_length=1400)
+    rawId: str = Field(max_length=1400)
+    type: Literal["public-key"]
+    authenticatorAttachment: Optional[str] = Field(None, max_length=30)
+    response: AssertionData
+
+
 class SigninRequest(BaseModel):
     auth_session: str = Field(min_length=1, max_length=256)
-    authn_response: PasskeyAuthResponse
+    authn_response: AuthnResponse
     verification: Optional[VerificationCodes] = None
 
 
@@ -132,7 +150,7 @@ const credential = await navigator.credentials.create({
 const authnResponse = toAuthnResponse(credential);
 ```
 
-`postJson` stands for your app's own `fetch` helper. Send only the `response` keys shown. `PasskeyAuthResponse.response` accepts string values only. If your target browsers lack `PublicKeyCredential.parseCreationOptionsFromJSON()`, base64url-decode `challenge` and `user.id` into `ArrayBuffer`s yourself.
+`postJson` stands for your app's own `fetch` helper. Send only the `response` keys shown. The route rejects any other key and any value that is not a string, and drops a `null` optional value. If your target browsers lack `PublicKeyCredential.parseCreationOptionsFromJSON()`, base64url-decode `challenge` and `user.id` into `ArrayBuffer`s yourself.
 
 ### Step 3 - Sign in and establish the session
 
@@ -147,7 +165,7 @@ async def passkey_signin(body: SigninRequest, request: Request, response: Respon
     try:
         result = await auth_client.signin_with_passkey(
             auth_session=body.auth_session,
-            authn_response=body.authn_response,
+            authn_response=PasskeyAuthResponse(**body.authn_response.model_dump(exclude_none=True)),
             verification=codes or None,
             connection=CONNECTION,
             client_ip=client_ip(request),
