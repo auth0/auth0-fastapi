@@ -28,6 +28,7 @@
 - **Fully Integrated Auth Flows**: Automatic routes for `/auth/login`, `/auth/logout`, `/auth/callback`, etc.
 - **Session-Based**: Uses secure cookies to store user sessions, either stateless (all data in cookie) or stateful (data in a database).
 - **Custom Token Exchange**: Exchange tokens from external identity providers or legacy systems for Auth0 tokens, with or without establishing a session.
+- **Passkeys**: Sign users up and in with WebAuthn passkeys, including email and phone verification at signup.
 - **Multiple Custom Domains (MCD)**: Support for applications using multiple custom domains on the same Auth0 tenant.
 - **Account Linking**: Optional routes for linking multiple social or username/password accounts into a single Auth0 profile.
 - **Backchannel Logout**: Receive logout tokens from Auth0 to invalidate sessions server-side.
@@ -318,6 +319,16 @@ Building on token exchange, the SDK also supports:
 - **[Impersonation via Session Transfer (STT)](./examples/CustomTokenExchange.md#3-impersonation-via-session-transfer-stt)** - mint a Session Transfer Token to log an agent into a target app as a customer, via `request_session_transfer_token()` and `build_session_transfer_redirect()`.
 
 See [examples/CustomTokenExchange.md](./examples/CustomTokenExchange.md) for setup and code samples.
+
+### Passkeys
+
+Sign users up and in with [WebAuthn](https://www.w3.org/TR/webauthn-2/) passkeys (Touch ID, Face ID, Windows Hello, or a security key) via `passkey_signup_challenge()`, `passkey_login_challenge()` and `signin_with_passkey()`. Signing in stores the session in the same state store as `/auth/callback`. Pass `scope` with `openid` and your `audience` to `signin_with_passkey()` to get the same tokens as a regular login.
+
+- **[Identifier verification](./examples/Passkeys.md#3-identifier-verification-optional)** - when your connection requires it, collect an email or phone code at signup and pass it to `signin_with_passkey()`.
+
+Rate-limit the route that requests the signup challenge, because each call sends a code. See [Security considerations](./examples/Passkeys.md#4-security-considerations).
+
+See [examples/Passkeys.md](./examples/Passkeys.md) for setup and code samples.
 
 ## Feedback
 
