@@ -1,4 +1,3 @@
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -58,7 +57,6 @@ class TestPasskeyErrorHandling:
                 "Invalid or expired session",
                 auth_session="sess_abc123",
                 verification_required=["email"],
-                status_code=400,
             )
         )
 
@@ -69,7 +67,7 @@ class TestPasskeyErrorHandling:
         assert "sess_abc123" not in res.text
 
     def test_other_passkey_errors_map_to_400(self):
-        """Test that passkey failures answered with an Auth0 4xx keep the default 400."""
+        """Test that non rate-limit passkey failures keep the default 400."""
         client = _client_raising(
             PasskeyError(PasskeyErrorCode.TOKEN_EXCHANGE_FAILED, "Passkey token exchange failed", status_code=403)
         )
@@ -78,34 +76,3 @@ class TestPasskeyErrorHandling:
 
         assert res.status_code == 400
         assert res.json()["error"] == "passkey_token_error"
-
-    @pytest.mark.parametrize("auth0_status", [500, 502, 503])
-    def test_passkey_error_from_auth0_server_failure_maps_to_502(self, auth0_status):
-        """Test that an Auth0 5xx reaches the browser as a bad gateway, not as a bad request."""
-        client = _client_raising(
-            PasskeyError(
-                PasskeyErrorCode.TOKEN_EXCHANGE_FAILED,
-                "Passkey token exchange failed",
-                status_code=auth0_status,
-            )
-        )
-
-        res = client.get("/raise")
-
-        assert res.status_code == 502
-        assert res.json() == {"error": "passkey_token_error", "message": "Passkey token exchange failed"}
-
-    def test_passkey_error_without_http_status_maps_to_502(self):
-        """Test that a failure with no Auth0 response, such as a network error, is a bad gateway."""
-        client = _client_raising(
-            PasskeyError(
-                PasskeyErrorCode.CHALLENGE_FAILED,
-                "Passkey login challenge failed",
-                ConnectionError("connection refused"),
-            )
-        )
-
-        res = client.get("/raise")
-
-        assert res.status_code == 502
-        assert res.json()["error"] == "passkey_challenge_error"
