@@ -50,6 +50,7 @@ import ipaddress
 from typing import Literal, Optional
 
 from auth0_server_python.auth_types import PasskeyAuthResponse, PasskeyUserProfile
+from auth0_server_python.error import MfaRequiredError
 from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -188,6 +189,10 @@ async def passkey_signin(body: SigninRequest, request: Request, response: Respon
             "auth_session": e.auth_session,
             "verification_required": e.verification_required,
         }
+    except MfaRequiredError as e:
+        response.status_code = 401
+        response.headers["Cache-Control"] = "no-store"
+        return {"error": "mfa_required", "mfa_token": e.mfa_token}
 
     user = result.state_data.get("user")
     return {"sub": user["sub"] if user else None}
@@ -199,7 +204,7 @@ async def passkey_signin(body: SigninRequest, request: Request, response: Respon
 
 Return a dict, as shown, rather than building your own `JSONResponse`. The SDK writes the session cookie onto the injected `response`, and FastAPI copies it to the dict response. A new `JSONResponse` would drop it.
 
-The `except PasskeyError` branch handles identifier verification and is covered in [section 3](#3-identifier-verification-optional). Every other error is re-raised to the SDK exception handler.
+The `except PasskeyError` branch handles identifier verification and is covered in [section 3](#3-identifier-verification-optional). The `except MfaRequiredError` branch is for tenants that require MFA and is covered in [Completing MFA](#completing-mfa). Every other error is re-raised to the SDK exception handler.
 
 ## 2. Passkey Login
 
@@ -347,11 +352,39 @@ With `register_exception_handlers(app)`, unhandled errors from the passkey metho
 | `InvalidArgumentError` | 400 |
 | `OrganizationTokenValidationError` | 400 |
 | `MissingRequiredArgumentError` | 422 |
-| `MfaRequiredError` | 401 |
+| `MfaRequiredError`, when the route does not catch it | 401 |
 | `IssuerValidationError` | 401 |
 | `ApiError` (ID token validation) | 502 |
 
-When the tenant requires MFA after the passkey sign-in, `signin_with_passkey()` raises `MfaRequiredError` before any session is created. Complete it with the MFA client on the underlying `ServerClient` (`auth_client.client.mfa`). On this path the SDK does not store the session for you. See [Completing MFA on a passkey login](https://github.com/auth0/auth0-server-python/blob/main/examples/Passkeys.md#completing-mfa-on-a-passkey-login-and-where-the-session-comes-from).
+### Completing MFA
+
+When the tenant requires MFA after the passkey sign-in, `signin_with_passkey()` raises `MfaRequiredError` before any session exists. The sign-in route in section 1 catches it and returns the `mfa_token` with a 401, so the browser has something to continue with. Without that branch the exception handler returns a 401 with only `error` and `message`.
+
+The browser sends the `mfa_token` back with the user's code. Treat the token as a credential: send `Cache-Control: no-store` and never log it. This route finishes the sign-in through the MFA client on the underlying `ServerClient` (`auth_client.client.mfa`). With `persist` set, `verify()` creates the session from the ID token in its response, so you do not store tokens yourself. Keep `openid` in the sign-in scope for that reason.
+
+```python
+class MfaVerifyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    mfa_token: str = Field(min_length=1, max_length=8192)
+    otp: str = Field(min_length=1, max_length=12)
+
+
+@router.post("/passkey/mfa/verify")
+async def passkey_mfa_verify(body: MfaVerifyRequest, request: Request, response: Response):
+    auth_client: AuthClient = request.app.state.auth_client
+
+    await auth_client.client.mfa.verify(
+        {"mfa_token": body.mfa_token, "otp": body.otp, "persist": True},
+        store_options={"request": request, "response": response},
+    )
+
+    response.headers["Cache-Control"] = "no-store"
+    return {"signed_in": True}
+```
+
+Some factors need a call to `mfa.challenge_authenticator()` before `verify()`, and recovery codes and out-of-band factors use other keys. See the [auth0-server-python MFA guide](https://github.com/auth0/auth0-server-python/blob/main/examples/MFA.md) for the options.
+
+MFA on a passkey login needs the default cookie state store for now. `StatefulStateStore` cannot save the pending MFA state, so the sign-in fails with a generic error before `MfaRequiredError` reaches your route.
 
 To bind the issued tokens with DPoP, pass `dpop_key` to `signin_with_passkey()`. See the [auth0-server-python passkey guide](https://github.com/auth0/auth0-server-python/blob/main/examples/Passkeys.md#3-dpop-bound-passkey-tokens-optional).
 
