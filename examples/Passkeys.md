@@ -193,7 +193,7 @@ async def passkey_signin(body: SigninRequest, request: Request, response: Respon
     return {"sub": user["sub"] if user else None}
 ```
 
-Unlike `/auth/login`, the SDK does not add your `Auth0Config` scope or audience to this call, so pass them yourself. Auth0 issues an ID token, and so the user in `state_data`, only when the scope includes `openid`. Pass the same `audience` as your `Auth0Config`, so `get_access_token()` finds the token this sign-in stored. Adjust `scope` to what your app needs and drop `offline_access` if you do not want a refresh token.
+`/auth/login` takes the `audience` and `authorization_params` from your `Auth0Config`, while `signin_with_passkey()` sends only the `scope` and `audience` you give it. Include `openid` in the scope, because Auth0 issues an ID token, and so the user in `state_data`, only with it. Use the same `audience` as your `Auth0Config`, so that `get_access_token()` finds the token this sign-in stored. Adjust `scope` to what your app needs, and drop `offline_access` if you do not want a refresh token.
 
 Return a dict, as shown, rather than building your own `JSONResponse`. The SDK writes the session cookie onto the injected `response`, and FastAPI copies it to the dict response. A new `JSONResponse` would drop it.
 
