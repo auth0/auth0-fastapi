@@ -322,7 +322,7 @@ See [examples/CustomTokenExchange.md](./examples/CustomTokenExchange.md) for set
 
 ### Passkeys
 
-Sign users up and in with [WebAuthn](https://www.w3.org/TR/webauthn-2/) passkeys (Touch ID, Face ID, Windows Hello, or a security key) via `passkey_signup_challenge()`, `passkey_login_challenge()` and `signin_with_passkey()`. Signing in establishes the same session as `/auth/callback`.
+Sign users up and in with [WebAuthn](https://www.w3.org/TR/webauthn-2/) passkeys (Touch ID, Face ID, Windows Hello, or a security key) via `passkey_signup_challenge()`, `passkey_login_challenge()` and `signin_with_passkey()`. Signing in stores the session in the same state store as `/auth/callback`. Pass `scope` with `openid` and your `audience` to `signin_with_passkey()` to get the same tokens as a regular login.
 
 - **[Identifier verification](./examples/Passkeys.md#3-identifier-verification-optional)** - when your connection requires it, collect an email or phone code at signup and pass it to `signin_with_passkey()`.
 

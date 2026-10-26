@@ -1,6 +1,6 @@
 # Passkey Authentication
 
-Passkeys let users sign up and log in with [WebAuthn](https://www.w3.org/TR/webauthn-2/) credentials (Touch ID, Face ID, Windows Hello, or a hardware security key) instead of a password. Signing in with a passkey establishes the same server-side session as `/auth/callback`.
+Passkeys let users sign up and log in with [WebAuthn](https://www.w3.org/TR/webauthn-2/) credentials (Touch ID, Face ID, Windows Hello, or a hardware security key) instead of a password. Signing in with a passkey stores the session in the same state store as `/auth/callback`. Request the `openid` scope and your `audience` when you sign in, as shown in [step 3](#step-3---sign-in-and-establish-the-session).
 
 > **NOTE**: Passkeys require a [Custom Domain](https://auth0.com/docs/customize/custom-domains) and the native passkey feature on your tenant. See the [Auth0 passkey documentation](https://auth0.com/docs/authenticate/database-connections/passkeys).
 
@@ -173,6 +173,8 @@ async def passkey_signin(body: SigninRequest, request: Request, response: Respon
             authn_response=PasskeyAuthResponse(**body.authn_response.model_dump(exclude_none=True)),
             verification=codes or None,
             connection=CONNECTION,
+            scope="openid profile email offline_access",
+            audience=auth_client.config.audience,
             client_ip=client_ip(request),
             store_options={"request": request, "response": response},
         )
@@ -187,8 +189,11 @@ async def passkey_signin(body: SigninRequest, request: Request, response: Respon
             "verification_required": e.verification_required,
         }
 
-    return {"sub": result.state_data["user"]["sub"]}
+    user = result.state_data.get("user")
+    return {"sub": user["sub"] if user else None}
 ```
+
+Unlike `/auth/login`, the SDK does not add your `Auth0Config` scope or audience to this call, so pass them yourself. Auth0 issues an ID token, and so the user in `state_data`, only when the scope includes `openid`. Pass the same `audience` as your `Auth0Config`, so `get_access_token()` finds the token this sign-in stored. Adjust `scope` to what your app needs and drop `offline_access` if you do not want a refresh token.
 
 Return a dict, as shown, rather than building your own `JSONResponse`. The SDK writes the session cookie onto the injected `response`, and FastAPI copies it to the dict response. A new `JSONResponse` would drop it.
 
