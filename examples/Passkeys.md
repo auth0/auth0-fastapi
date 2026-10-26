@@ -46,6 +46,7 @@ register_exception_handlers(app)
 The routes below share these request models, constants and the `client_ip` helper. The models reject unknown fields and limit lengths before anything reaches Auth0. Read [Forward a trusted client IP](#4-security-considerations) before you deploy the helper.
 
 ```python
+import ipaddress
 from typing import Literal, Optional
 
 from auth0_server_python.auth_types import PasskeyAuthResponse, PasskeyUserProfile
@@ -97,7 +98,11 @@ class SigninRequest(BaseModel):
 
 
 def client_ip(request: Request) -> Optional[str]:
-    return request.client.host if request.client else None
+    host = request.client.host if request.client else None
+    try:
+        return str(ipaddress.ip_address(host)) if host else None
+    except ValueError:
+        return None
 ```
 
 ### Step 1 - Request a signup challenge
@@ -291,7 +296,7 @@ To resend, call the signup challenge again before the credential is created. Eac
 ## 4. Security considerations
 
 - **Rate-limit the signup challenge route.** Each call sends codes, so without a limit the route can be abused to send messages in bulk (SMS pumping). Limit it per IP address and per email address or phone number, for example at your reverse proxy or with a library such as `slowapi`.
-- **Forward a trusted client IP.** Pass `client_ip` to all three methods so Auth0 sees the user's address, not your server's. Auth0 uses it when the **Trust Token Endpoint IP Header** setting is enabled for the application, so a spoofed value lets a caller get around per-IP limits. `request.client.host` reads `X-Forwarded-For` only from the addresses in uvicorn's `--forwarded-allow-ips` (default `127.0.0.1`). Set that to your own proxies, never to `*` when clients can reach the app directly. Never copy a client-supplied header into `client_ip`. Pass an IP address only, because Auth0 can reject any other value.
+- **Forward a trusted client IP.** Pass `client_ip` to all three methods so Auth0 sees the user's address, not your server's. Auth0 uses it when the **Trust Token Endpoint IP Header** setting is enabled for the application, so a spoofed value lets a caller get around per-IP limits. `request.client.host` reads `X-Forwarded-For` only from the addresses in uvicorn's `--forwarded-allow-ips` (default `127.0.0.1`). Set that to the addresses of your own proxies and never to `*`, which makes uvicorn trust the first `X-Forwarded-For` entry, and the client can set that entry. Uvicorn passes the header value through unchecked, so the `client_ip` helper returns the address only when it is a valid IP and `None` otherwise, because Auth0 can reject any other value. Never copy a client-supplied header into `client_ip`.
 - **Treat `auth_session` and verification codes as credentials.** Never log them, and never put them in URLs. Send `Cache-Control: no-store` on responses that carry `auth_session`. `PasskeyError` carries `auth_session` as an attribute, so do not log the error's attributes.
 - **Validate at the route.** Use request models like the ones above: `extra="forbid"`, codes of at most 10 characters, and only the `email` and `phone` keys. The SDK also rejects any other `verification` key with `InvalidArgumentError`.
 - **Keep retry details out of generic error responses.** `register_exception_handlers()` returns only `error` and `message`. Return `auth_session` only from the route that owns the retry, as in section 1.
