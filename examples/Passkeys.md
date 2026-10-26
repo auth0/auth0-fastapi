@@ -195,6 +195,8 @@ async def passkey_signin(body: SigninRequest, request: Request, response: Respon
 
 `/auth/login` takes the `audience` and `authorization_params` from your `Auth0Config`, while `signin_with_passkey()` sends only the `scope` and `audience` you give it. Include `openid` in the scope, because Auth0 issues an ID token, and so the user in `state_data`, only with it. Use the same `audience` as your `Auth0Config`, so that `get_access_token()` finds the token this sign-in stored. Adjust `scope` to what your app needs, and drop `offline_access` if you do not want a refresh token.
 
+`result` holds the user's access, refresh and ID tokens, and `repr(result)` prints them. Keep it on the server and never return or log it. The route above returns only the `sub`.
+
 Return a dict, as shown, rather than building your own `JSONResponse`. The SDK writes the session cookie onto the injected `response`, and FastAPI copies it to the dict response. A new `JSONResponse` would drop it.
 
 The `except PasskeyError` branch handles identifier verification and is covered in [section 3](#3-identifier-verification-optional). Every other error is re-raised to the SDK exception handler.
