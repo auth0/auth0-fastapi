@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.0.0b12](https://github.com/auth0/auth0-fastapi/tree/1.0.0b12) (2026-10-26)
+[Full Changelog](https://github.com/auth0/auth0-fastapi/compare/1.0.0b11...1.0.0b12)
+
+**Added**
+- feat: add passkey signup and login with identifier verification [\#174](https://github.com/auth0/auth0-fastapi/pull/174) ([rmad17](https://github.com/rmad17))
+
 ## [1.0.0b11](https://github.com/auth0/auth0-fastapi/tree/1.0.0b11) (2026-09-17)
 [Full Changelog](https://github.com/auth0/auth0-fastapi/compare/1.0.0b10...1.0.0b11)
 
