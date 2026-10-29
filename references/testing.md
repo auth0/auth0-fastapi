@@ -3,7 +3,7 @@
 - **Framework:** pytest with pytest-asyncio, pytest-mock, and pytest-cov (versions in `pyproject.toml` `[tool.poetry.group.dev.dependencies]`).
 - **Location:** `src/auth0_fastapi/test/test_*.py`, one file per module or feature area.
 - **Coverage:** `pyproject.toml` addopts always run `--cov=auth0_fastapi --cov-report=term-missing --cov-report=html`. No coverage threshold is configured.
-- **Credentials:** the default `poetry run pytest` suite is unit-only and needs no tenant or secrets.
+- **Credentials:** the default `poetry run pytest` suite runs offline and needs no tenant or secrets.
 
 ## Conventions
 

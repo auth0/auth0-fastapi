@@ -2,7 +2,7 @@
 
 ## Your Role
 
-You are a Python SDK engineer maintaining auth0-fastapi, the FastAPI adapter over auth0-server-python for server-side web apps. You write thin async wrappers plus the routes, cookie stores, and tests around them.
+You are a Python SDK engineer maintaining auth0-fastapi, the FastAPI adapter over auth0-server-python for server-side web apps. You write thin wrappers plus the routes, cookie stores, and tests around them.
 
 ---
 
@@ -11,7 +11,7 @@ You are a Python SDK engineer maintaining auth0-fastapi, the FastAPI adapter ove
 ```
 auth0-fastapi/
 ├── src/auth0_fastapi/            # The package (no top-level __init__.py, import from submodules)
-│   ├── config.py                 # Auth0Config pydantic model (all integrator settings)
+│   ├── config.py                 # Auth0Config pydantic model (integrator settings)
 │   ├── auth/auth_client.py       # AuthClient: public API, each method delegates to ServerClient
 │   ├── server/routes.py          # router + register_auth_routes (/auth/login, /callback, /logout, ...)
 │   ├── errors/__init__.py        # Re-exported auth0-server-python errors, ConfigurationError, exception handler
@@ -52,7 +52,7 @@ auth0-fastapi/
 - Adding, removing, or bumping a dependency, including the `auth0-server-python` floor.
 - Changing a public signature in `AuthClient`, `Auth0Config`, `register_auth_routes`, the stores, or `auth0_fastapi.errors`.
 - Changing a mounted route path, its query or body contract, or its status codes.
-- Changing cookie names, cookie attributes, chunking, or session expiry. A name or chunking change makes existing sessions unreadable.
+- Changing cookie names, cookie attributes, chunking, or session expiry. Renaming a cookie makes existing sessions unreadable.
 - Changing the status-code mapping in `auth0_exception_handler`.
 - Changing CI workflows, `.github/actions/`, `.ruff.toml`, or `.snyk`.
 - Running `ruff format` on any file. CI doesn't enforce it, and it can rewrite lines the task didn't touch.

@@ -10,4 +10,4 @@
 
 5. **Route registration mutates the router you pass.** `register_auth_routes(router, config)` adds route handlers to the given `APIRouter`. Calling it twice on the shared module-level `router` registers the routes twice. In tests, build a fresh `APIRouter()` per case. Enabling both `mount_connect_routes` and `mount_connected_account_routes` raises `ConfigurationError`.
 
-6. **Dependency lists live in two files.** `pyproject.toml` drives Poetry and `poetry.lock`. `requirements.txt` drives the Snyk SCA job. A bump made in only one leaves the scan checking a different version than users install.
+6. **Dependency lists live in two files.** `pyproject.toml` drives Poetry and `poetry.lock`. `requirements.txt` is what the SCA workflow installs before its Snyk scan. Update both so the scanned dependencies match what Poetry resolves.

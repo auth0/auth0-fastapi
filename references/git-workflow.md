@@ -2,9 +2,9 @@
 
 ## Branches
 
-- Branch from `main`. Use a typed prefix that matches the change: `feat/<topic>`, `fix/<topic>`, `docs/<topic>`, `chore/<topic>`. Some branches use a Jira key instead (`SDK-8920-cte`).
+- Branch from `main`. Use a typed prefix that matches the change: `feat/<topic>`, `docs/<topic>`, `chore/<topic>`. Some branches use a Jira key instead (`SDK-8920-cte`).
 - `release/<version>` branches (e.g. `release/1.0.0b12`) carry the release PR that bumps `.version`, `pyproject.toml`, and `CHANGELOG.md`. Don't create them as part of a feature change.
-- Dependabot opens `dependabot/pip/*` and `dependabot/github_actions/*` branches daily. It ignores semver-major bumps (`.github/dependabot.yml`).
+- Dependabot opens `dependabot/pip/*` and `dependabot/github_actions/*` branches daily. For pip it ignores semver-major bumps (`.github/dependabot.yml`).
 
 ## Commits
 

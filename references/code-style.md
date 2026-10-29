@@ -9,7 +9,7 @@
 ## Naming
 
 - snake_case for functions, methods, variables, and `Auth0Config` fields. camelCase appears only where an external contract needs it: pydantic aliases (`clientId`, `appBaseUrl`) and query parameters or `app_state` keys (`returnTo`, `connectionScope`).
-- PascalCase for classes. Errors end in `Error` and set a `code` attribute.
+- PascalCase for classes. Errors end in `Error`. `ConfigurationError`, the only error defined in this package, sets a `code` attribute.
 
 ## Wrapper pattern
 
