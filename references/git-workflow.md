@@ -2,8 +2,7 @@
 
 ## Branches
 
-- Branch from `main`. Use a typed prefix that matches the change: `feat/<topic>`, `docs/<topic>`, `chore/<topic>`. Some branches use a Jira key instead (`SDK-8920-cte`).
-- `release/<version>` branches (e.g. `release/1.0.0b12`) carry the release PR that bumps `.version`, `pyproject.toml`, and `CHANGELOG.md`. Don't create them as part of a feature change.
+- Branch from `main`. Use a typed prefix that matches the change: `feat/<topic>`, `docs/<topic>`, `chore/<topic>`.- `release/<version>` branches (e.g. `release/1.0.0b12`) carry the release PR that bumps `.version`, `pyproject.toml`, and `CHANGELOG.md`. Don't create them as part of a feature change.
 - Dependabot opens `dependabot/pip/*` and `dependabot/github_actions/*` branches daily. For pip it ignores semver-major bumps (`.github/dependabot.yml`).
 
 ## Commits
@@ -21,4 +20,4 @@ Follow `.github/PULL_REQUEST_TEMPLATE.md`:
 - **Testing:** how reviewers test it, plus the unit coverage, integration coverage, and latest-platform checkboxes.
 - **Checklist:** contribution guidelines, code of conduct, all tests pass.
 
-CODEOWNERS assigns every path to `@auth0/project-dx-sdks-engineer-codeowner`. A Claude review workflow (`claude-code-review.yml`) responds to PR comments and reviews.
+A Claude review workflow (`claude-code-review.yml`) responds to PR comments and reviews.

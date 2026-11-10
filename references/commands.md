@@ -35,6 +35,6 @@ poetry build
 
 ## CI-only jobs
 
-- `sca_scan.yml` installs `requirements.txt` into a venv and runs the Snyk scan from `auth0/devsecops-tooling`.
+- `sca_scan.yml` installs `requirements.txt` into a venv and runs the Snyk scan.
 - `codeql.yml` runs CodeQL analysis.
-- `publish.yml` is a manual `workflow_dispatch` release that reads the version from `.version`, runs the RL scanner, creates the GitHub release, and publishes to PyPI. Agents don't run it.
+- `publish.yml` is a manual `workflow_dispatch` release that reads the version from `.version`, creates the GitHub release, and publishes to PyPI. Agents don't run it.
