@@ -2,14 +2,15 @@
 
 ## Branches
 
-- Branch from `main`. Use a typed prefix that matches the change: `feat/<topic>`, `docs/<topic>`, `chore/<topic>`.- `release/<version>` branches (e.g. `release/1.0.0b12`) carry the release PR that bumps `.version`, `pyproject.toml`, and `CHANGELOG.md`. Don't create them as part of a feature change.
+- Branch from `main`. Use a typed prefix that matches the change: `feat/<topic>`, `fix/<topic>`, `docs/<topic>`, `test/<topic>`, `chore/<topic>`.
+- `release/<version>` branches carry the release PR that bumps `.version`, `pyproject.toml`, and `CHANGELOG.md`. Don't create them as part of a feature change.
 - Dependabot opens `dependabot/pip/*` and `dependabot/github_actions/*` branches daily. For pip it ignores semver-major bumps (`.github/dependabot.yml`).
 
 ## Commits
 
 - Conventional commit subject: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `build:` (dependency floors), `chore:`, `revert:`. One line, lowercase after the prefix, no trailing period, and say what changed (e.g. `fix: relay the status Auth0 returned for passkey errors`).
 - One logical change per commit. Docs, tests, and code for the same change can land as separate commits in one PR.
-- The repo has no commitlint or pre-commit config. Reviewers enforce the format.
+- The repo has no commitlint or pre-commit config, so nothing checks the format automatically.
 
 ## Pull requests
 
@@ -20,4 +21,4 @@ Follow `.github/PULL_REQUEST_TEMPLATE.md`:
 - **Testing:** how reviewers test it, plus the unit coverage, integration coverage, and latest-platform checkboxes.
 - **Checklist:** contribution guidelines, code of conduct, all tests pass.
 
-A Claude review workflow (`claude-code-review.yml`) responds to PR comments and reviews.
+The `claude-code-review.yml` workflow is triggered by PR comments and reviews.

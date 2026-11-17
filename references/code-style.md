@@ -13,7 +13,7 @@
 
 ## Wrapper pattern
 
-Public `AuthClient` methods forward their arguments to `ServerClient` with minimal glue, such as building an options object (`StartInteractiveLoginOptions`, `LogoutOptions`). Methods that accept `store_options` take it last and document it.
+Public `AuthClient` methods forward their arguments to `ServerClient` with minimal glue, such as building an options object (`StartInteractiveLoginOptions`, `LogoutOptions`). Methods that accept `store_options` take it last, and newer methods document it.
 
 Good (`auth/auth_client.py`):
 
@@ -68,5 +68,5 @@ The bad version reimplements protocol logic owned by auth0-server-python, logs t
 ## Comments and docs
 
 - No inline comments that narrate a self-explanatory line.
-- Plain hyphens only in code, docstrings, and docs. No em or en dashes.
-- Public docs and docstrings state only behavior that Auth0's public docs or the auth0-server-python public API confirm. Don't describe Auth0 backend internals.
+- Plain hyphens only in new or changed code, docstrings, and docs. No em or en dashes.
+- Public docs and docstrings state only behavior that Auth0's public docs or the auth0-server-python public API confirm. Don't describe server behavior those sources don't state.
